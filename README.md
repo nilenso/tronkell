@@ -73,3 +73,12 @@
 	- Around 40 fps of lag is okay?
 - Grid is WxH discrete
 - Player position is discrete
+
+### Server Implementation
+
+#### Game Play
+- There is a 'tick' event generator inside the server.
+- Players generate their own events: 'left', 'right'
+- These events are linearized into a stream, and processed by the server
+- The server computes the new state of the game for each tick event
+- The server sends out the state of the game for every tick
