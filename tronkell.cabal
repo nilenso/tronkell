@@ -15,8 +15,9 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Tronkell.Types
-  build-depends:       base >= 4.7 && < 5
+  ghc-options:         -Wall -fwarn-incomplete-uni-patterns -fno-warn-unused-do-bind -fno-warn-orphans
+  exposed-modules:     Tronkell.Types, Tronkell.Game.Types, Tronkell.Game.Engine
+  build-depends:       base >= 4.7 && < 5, mtl, containers
   default-language:    Haskell2010
 
 executable tronkell-exe
