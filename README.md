@@ -82,3 +82,25 @@
 - These events are linearized into a stream, and processed by the server
 - The server computes the new state of the game for each tick event
 - The server sends out the state of the game for every tick
+
+
+#### Grid Shape
+For the following grid, p1 is at (1,1) and p2 is at (2,3)
+
+``` shell
+            N
+          W   E
+            S
+
+|   Y |   |    |    |   |
+|-----+---+----+----+---|
+|   3 |   |    | p2 |   |
+|-----+---+----+----+---|
+|   2 |   |    |    |   |
+|-----+---+----+----+---|
+|   1 |   | p1 |    |   |
+|-----+---+----+----+---|
+|   0 |   |    |    |   |
+|-----+---+----+----+---|
+| X-> | 0 |  1 |  2 | 3 |
+```
