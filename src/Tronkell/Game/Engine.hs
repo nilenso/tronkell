@@ -5,6 +5,7 @@ module Tronkell.Game.Engine where
 import Control.Monad.State
 import Tronkell.Game.Types
 import Data.Maybe (fromJust)
+import Debug.Trace
 import qualified Data.Map as Map
 
 gameEngine :: GameEngine
@@ -12,10 +13,18 @@ gameEngine inputEvents = do
   fmap concat . mapM runEvent $ inputEvents
 
 runEvent :: InputEvent -> State Game [OutEvent]
-runEvent inputEvent = case inputEvent of
-  TurnLeft nick -> turnLeft nick
-  TurnRight nick -> turnRight nick
-  Tick -> tick
+runEvent inputEvent = do
+  game@(Game _ ps _ _ ) <- get
+  let deadPlayers = Map.filter (\(Player _ s _ _ _) -> s == Dead) ps
+      alivePlayers = Map.filter (\(Player _ s _ _ _) -> s == Alive) ps
+  put game {gamePlayers = alivePlayers}
+  os <- case inputEvent of
+             TurnLeft nick -> turnLeft nick
+             TurnRight nick -> turnRight nick
+             Tick -> tick
+  curGame <- get
+  put curGame {gamePlayers = Map.union (gamePlayers curGame) deadPlayers }
+  return os
 
 stopAtBoundary :: GameConfig -> Coordinate -> Coordinate
 stopAtBoundary (GameConfig w h _ _) (x, y) =
@@ -77,5 +86,5 @@ runSimulation =
       config = GameConfig 3 3 1 1
       gamePs = Map.fromList [(playerNick p1, p1), (playerNick p2, p2)]
       game = Game Nothing gamePs InProgress config
-      engine = gameEngine [TurnLeft (playerNick p1), Tick, Tick] in
+      engine = gameEngine [TurnLeft (playerNick p1), Tick] in
     runState engine game

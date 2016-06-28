@@ -26,7 +26,7 @@ data Player = Player { playerNick :: PlayerNick
                      , playerTrail :: Trail
                      } deriving (Show)
 
-data PlayerStatus = Alive | Dead deriving (Show)
+data PlayerStatus = Alive | Dead deriving (Show, Eq)
 
 data Orientation = North | East | South | West deriving (Enum, Bounded, Show)
 
