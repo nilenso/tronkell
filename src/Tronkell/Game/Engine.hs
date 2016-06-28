@@ -17,21 +17,22 @@ runEvent inputEvent = case inputEvent of
   TurnRight nick -> turnRight nick
   Tick -> moveForward
 
+movePlayerForward :: Player -> Player
+movePlayerForward player@(Player {..}) = let (x,y) = playerCoordinate
+  in case playerOrientation of
+       North -> player { playerCoordinate = (x, y+1) }
+       East -> player { playerCoordinate = (x+1, y) }
+       South -> player { playerCoordinate = (x, y-1) }
+       West -> player { playerCoordinate = (x-1, y) }
+
 moveForward :: State Game [OutEvent]
 moveForward  = do
   game@(Game {..}) <- get
-  let movedPlayers = Map.map movePlayer gamePlayers
+  let movedPlayers = Map.map movePlayerForward gamePlayers
       newGame = game { gamePlayers = movedPlayers }
+      playerToPlayerMove (Player n _ c o _) = PlayerMoved n c o
   put newGame
-  return $ Map.elems . Map.map (\(Player n _ c o _) -> PlayerMoved n c o) $ movedPlayers
-  where
-    movePlayer player@(Player {..}) = let (x,y) = playerCoordinate
-      in case playerOrientation of
-           North -> player { playerCoordinate = (x, y+1) }
-           East -> player { playerCoordinate = (x+1, y) }
-           South -> player { playerCoordinate = (x, y-1) }
-           West -> player { playerCoordinate = (x-1, y) }
-
+  return . map playerToPlayerMove . Map.elems $ movedPlayers
 
 turnRight :: PlayerNick -> State Game [OutEvent]
 turnRight nick =
@@ -57,6 +58,7 @@ turn getNewOrientation nick = do
 orientations :: [Orientation]
 orientations = [minBound..maxBound]
 
+runSimulation :: ([OutEvent], Game)
 runSimulation =
   let p1 = Player (PlayerNick "player 1") Alive (1,1) North []
       p2 = Player (PlayerNick "player 2") Alive (2,2) North []
