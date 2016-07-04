@@ -5,7 +5,6 @@ module Tronkell.Game.Engine where
 import Control.Monad.State
 import Tronkell.Game.Types
 import Data.Maybe (fromJust)
-import Debug.Trace
 import qualified Data.Map as Map
 
 gameEngine :: GameEngine
