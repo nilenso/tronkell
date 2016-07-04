@@ -13,8 +13,8 @@ gameEngine = fmap concat . mapM runEvent
 runEvent :: InputEvent -> State Game [OutEvent]
 runEvent inputEvent = do
   game@(Game _ ps _ _ ) <- get
-  let deadPlayers = Map.filter (\(Player _ s _ _ _) -> s == Dead) ps
-      alivePlayers = Map.filter (\(Player _ s _ _ _) -> s == Alive) ps
+  let deadPlayers = Map.filter (\p -> playerStatus p == Dead) ps
+      alivePlayers = Map.filter (\p -> playerStatus p == Alive) ps
   put game {gamePlayers = alivePlayers}
   os <- case inputEvent of
              TurnLeft nick -> turnLeft nick
