@@ -44,7 +44,7 @@ isValidPlayer :: GameConfig -> Player -> Bool
 isValidPlayer (GameConfig w h _ _) (Player _ _ (x, y) _ _) = x < w && y < h
 
 areOverlappingPlayers :: Player -> Player -> Bool
-areOverlappingPlayers p1 p2 = playerCoordinate p1 == playerCoordinate p2
+areOverlappingPlayers p1 p2 = playerNick p1 == playerNick p2 || playerCoordinate p1 == playerCoordinate p2
 
 instance Arbitrary Game where
   arbitrary = do
