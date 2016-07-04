@@ -36,3 +36,6 @@ script: stack $ARGS --no-terminal --install-ghc install --test --fast
 cache:
   directories:
   - $HOME/.stack
+
+notifications:
+  slack: nilenso:33YejjSAlFvg4kt9Efr3xPFR
