@@ -1,3 +1,4 @@
+# Classic tron in Haskell [![Build Status](https://travis-ci.org/nilenso/tronkell.svg?branch=master)](https://travis-ci.org/nilenso/tronkell)
 ## Rules
 - The Game runs on a square grid
 - The Players (2 or more) can move along horizontal and vertical lines of the grid
