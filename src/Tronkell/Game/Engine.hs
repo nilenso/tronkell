@@ -57,7 +57,7 @@ turnRight :: PlayerNick -> State Game [OutEvent]
 turnRight = turn (getNextEnum 1)
 
 turnLeft :: PlayerNick -> State Game [OutEvent]
-turnLeft nick = turn (getNextEnum 3)
+turnLeft = turn (getNextEnum 3)
 
 getNextEnum :: Int -> Orientation -> Orientation
 getNextEnum turnTimes i = head. drop (turnTimes + (fromEnum i)) . cycle $ orientations
