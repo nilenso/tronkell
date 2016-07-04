@@ -9,8 +9,7 @@ import Debug.Trace
 import qualified Data.Map as Map
 
 gameEngine :: GameEngine
-gameEngine inputEvents = do
-  fmap concat . mapM runEvent $ inputEvents
+gameEngine = fmap concat . mapM runEvent
 
 runEvent :: InputEvent -> State Game [OutEvent]
 runEvent inputEvent = do
@@ -36,7 +35,7 @@ computePlayerStatus (GameConfig w h _ _) (x, y) =
   if x < 0 || x >= w || y < 0 || y >= h then Dead else Alive
 
 movePlayerForward :: GameConfig -> Player -> Player
-movePlayerForward gameConfig player@(Player {..}) =
+movePlayerForward gameConfig player@Player{..} =
   let (x,y) = playerCoordinate
       newPosition = case playerOrientation of
                       North -> (x, y+1)
@@ -48,7 +47,7 @@ movePlayerForward gameConfig player@(Player {..}) =
 
 tick :: State Game [OutEvent]
 tick  = do
-  game@(Game {..}) <- get
+  game@Game{..} <- get
   let movedPlayers = Map.map (movePlayerForward gameConfig) gamePlayers
       newGame = game { gamePlayers = movedPlayers }
       playerToPlayerMove (Player n _ c o _) = PlayerMoved n c o
@@ -56,19 +55,17 @@ tick  = do
   return . map playerToPlayerMove . Map.elems $ movedPlayers
 
 turnRight :: PlayerNick -> State Game [OutEvent]
-turnRight nick =
-  turn (getNextEnum 1) nick
+turnRight = turn (getNextEnum 1)
 
 turnLeft :: PlayerNick -> State Game [OutEvent]
-turnLeft nick =
-  turn (getNextEnum 3) nick
+turnLeft nick = turn (getNextEnum 3)
 
 getNextEnum :: Int -> Orientation -> Orientation
 getNextEnum turnTimes i = head. drop (turnTimes + (fromEnum i)) . cycle $ orientations
 
 turn :: (Orientation -> Orientation) -> PlayerNick -> State Game [OutEvent]
 turn getNewOrientation nick = do
-  game@(Game {..}) <- get
+  game@Game{..} <- get
   let player = fromJust . Map.lookup nick $ gamePlayers
       newPlayer = player { playerOrientation = getNewOrientation . playerOrientation $ player}
       newGamePlayers = Map.insert nick newPlayer gamePlayers
