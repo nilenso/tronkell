@@ -20,13 +20,13 @@ instance Random BoundedInt where
   random g = let (a, g') = random g in (BoundedInt a, g')
 
 instance Arbitrary BoundedInt where
-  arbitrary = fmap BoundedInt $ choose (0, 2)
+  arbitrary = fmap BoundedInt $ choose (0, 100)
 
 
 instance Arbitrary GameConfig where
   arbitrary = do
-    w <- unBoundedInt <$> arbitrary
-    h <- unBoundedInt <$> arbitrary
+    w <- unBoundedInt <$> arbitrary `suchThat` (> 0)
+    h <- unBoundedInt <$> arbitrary `suchThat` (> 0)
     sp <- unBoundedInt <$> arbitrary
     return $ GameConfig w h sp 1
 
@@ -48,15 +48,15 @@ areOverlappingPlayers p1 p2 = playerNick p1 == playerNick p2 || playerCoordinate
 
 instance Arbitrary Game where
   arbitrary = do
-    np   <- unBoundedInt <$> arbitrary
     conf <- arbitrary
+    np   <- unBoundedInt <$> arbitrary `suchThat` (< (BoundedInt $ gameWidth conf * gameHeight conf))
     ps   <- nubBy areOverlappingPlayers <$> (vectorOf np $ arbitrary `suchThat` isValidPlayer conf)
     let mp = Map.fromList . map (\p -> (playerNick p, p)) $ ps
     return $ Game Nothing mp InProgress conf
 
 
 isPlayerOnGrid :: Game -> Player -> Bool
-isPlayerOnGrid game p = isValidPlayer (gameConfig game) $ p
+isPlayerOnGrid game = isValidPlayer (gameConfig game)
 
 main :: IO ()
 main = hspec $ do
