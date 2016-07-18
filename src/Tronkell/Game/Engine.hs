@@ -10,6 +10,9 @@ import qualified Data.Map as Map
 gameEngine :: GameEngine
 gameEngine = fmap concat . mapM runEvent
 
+runEngine :: GameEngine -> Game -> [InputEvent] -> ([OutEvent], Game)
+runEngine engine game inEvents = runState (engine inEvents) game
+
 runEvent :: InputEvent -> State Game [OutEvent]
 runEvent inputEvent = do
   game@(Game _ ps _ _ ) <- get

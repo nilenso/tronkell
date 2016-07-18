@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
@@ -6,8 +7,10 @@ import Tronkell.Game.Types
 import Tronkell.Game.Engine
 
 import qualified Data.Map as Map
-import Data.List
+import Data.List (nub, nubBy)
+import Data.Maybe (isNothing)
 import System.Random
+
 import Test.Hspec
 import Test.QuickCheck
 
@@ -50,16 +53,50 @@ instance Arbitrary Game where
   arbitrary = do
     conf <- arbitrary
     np   <- unBoundedInt <$> arbitrary `suchThat` (< (BoundedInt $ gameWidth conf * gameHeight conf))
+                                       `suchThat` (> 0)
     ps   <- nubBy areOverlappingPlayers <$> (vectorOf np $ arbitrary `suchThat` isValidPlayer conf)
     let mp = Map.fromList . map (\p -> (playerNick p, p)) $ ps
     return $ Game Nothing mp InProgress conf
-
 
 isPlayerOnGrid :: Game -> Player -> Bool
 isPlayerOnGrid game = isValidPlayer (gameConfig game)
 
 main :: IO ()
 main = hspec $ do
-  describe "game" $ do
+  describe "game init setup" $ do
     it "has all players on grid" $
-      property $ \game -> and . Map.map (isPlayerOnGrid game) $ (gamePlayers game)
+      property $ \game -> testPlayerProperty (isPlayerOnGrid game) game
+
+    it "has no trails at the start" $
+      property $ testPlayerProperty (null . playerTrail)
+
+    it "has all alive players" $
+      property $ testPlayerProperty ((== Alive) . playerStatus)
+
+    it "has no overlapping players" $
+      property $ \game@Game {..} ->
+        length gamePlayers == (length . nub . Map.elems . Map.map playerCoordinate $ gamePlayers)
+
+    it "has No winner at start" $
+      property $ isNothing . gameWinner
+
+    it "is in progress at start" $
+      property $ (== InProgress) . gameStatus
+
+  describe "game in progress" $ do
+    it "has all players on grid after some events" $
+      property $ \game nums ->
+        let events = map (genEvent game) nums
+            (_, game') = runEngine gameEngine game events
+        in testPlayerProperty (isPlayerOnGrid game') game'
+
+  where
+    testPlayerProperty f = and . Map.map f . gamePlayers
+
+    genEvent :: Game -> (Positive Int, Positive Int) -> InputEvent
+    genEvent Game {..} (Positive eventNo, Positive playerNo) =
+      let nick = (Map.keys gamePlayers) !! (playerNo `mod` Map.size gamePlayers)
+      in case eventNo `mod` 3 of
+        0 -> Tick
+        1 -> TurnLeft nick
+        2 -> TurnRight nick
