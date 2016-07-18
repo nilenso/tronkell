@@ -24,7 +24,7 @@ instance Random BoundedInt where
   random g = let (a, g') = random g in (BoundedInt a, g')
 
 instance Arbitrary BoundedInt where
-  arbitrary = fmap BoundedInt $ choose (0, 100)
+  arbitrary = BoundedInt <$> choose (0, 100)
 
 instance Arbitrary GameConfig where
   arbitrary = do
@@ -55,7 +55,7 @@ instance Arbitrary Game where
               <$> arbitrary `suchThat` (< (BoundedInt $ gameWidth conf * gameHeight conf))
                             `suchThat` (> 0)
     ps     <- nubBy areOverlappingPlayers
-              <$> (vectorOf np $ arbitrary `suchThat` isValidPlayer conf)
+              <$> vectorOf np (arbitrary `suchThat` isValidPlayer conf)
     let mp = Map.fromList . map (\p -> (playerNick p, p)) $ ps
     return $ Game Nothing mp InProgress conf
 
@@ -75,7 +75,7 @@ main = hspec $ do
       property $ testPlayerProperty ((== Alive) . playerStatus)
 
     it "has no overlapping players" $
-      property $ \game@Game {..} ->
+      property $ \Game {..} ->
         length gamePlayers == (length . nub . Map.elems . Map.map playerCoordinate $ gamePlayers)
 
     it "has No winner at start" $
@@ -96,8 +96,9 @@ main = hspec $ do
 
     genEvent :: Game -> (Positive Int, Positive Int) -> InputEvent
     genEvent Game {..} (Positive eventNo, Positive playerNo) =
-      let nick = (Map.keys gamePlayers) !! (playerNo `mod` Map.size gamePlayers)
+      let nick = Map.keys gamePlayers !! (playerNo `mod` Map.size gamePlayers)
       in case eventNo `mod` 3 of
         0 -> Tick
         1 -> TurnLeft nick
         2 -> TurnRight nick
+        _ -> error "Should never happen"

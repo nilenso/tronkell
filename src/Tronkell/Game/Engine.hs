@@ -4,7 +4,7 @@ module Tronkell.Game.Engine where
 
 import Control.Monad.State
 import Tronkell.Game.Types
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust)
 import qualified Data.Map as Map
 
 gameEngine :: GameEngine
@@ -20,8 +20,8 @@ runEvent inputEvent = do
   if not $ isValidEvent inputEvent game
   then return []
   else do
-    let deadPlayers  = Map.filter (\p -> playerStatus p == Dead) ps
-        alivePlayers = Map.filter (\p -> playerStatus p == Alive) ps
+    let deadPlayers  = Map.filter ((== Dead)  . playerStatus) ps
+        alivePlayers = Map.filter ((== Alive) . playerStatus) ps
     put game {gamePlayers = alivePlayers}
     os <- case inputEvent of
       TurnLeft  nick -> turnLeft nick
@@ -39,8 +39,7 @@ isValidEvent event game = case event of
 
 isPlayerAlive :: PlayerNick -> Game -> Bool
 isPlayerAlive nick =
-  fromMaybe False
-  . fmap ((== Alive) . playerStatus)
+  maybe False ((== Alive) . playerStatus)
   . Map.lookup nick
   . gamePlayers
 
@@ -82,7 +81,7 @@ turnLeft :: PlayerNick -> State Game [OutEvent]
 turnLeft = turn (getNextEnum 3)
 
 getNextEnum :: Int -> Orientation -> Orientation
-getNextEnum turnTimes i = head. drop (turnTimes + (fromEnum i)) . cycle $ orientations
+getNextEnum turnTimes i = head . drop (turnTimes + fromEnum i) . cycle $ orientations
 
 turn :: (Orientation -> Orientation) -> PlayerNick -> State Game [OutEvent]
 turn getNewOrientation nick = do
