@@ -4,7 +4,7 @@ module Tronkell.Game.Engine where
 
 import Control.Monad.State
 import Tronkell.Game.Types
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Map as Map
 
 gameEngine :: GameEngine
@@ -16,16 +16,30 @@ runEngine engine game inEvents = runState (engine inEvents) game
 runEvent :: InputEvent -> State Game [OutEvent]
 runEvent inputEvent = do
   game@(Game _ ps _ _ ) <- get
-  let deadPlayers = Map.filter (\p -> playerStatus p == Dead) ps
-      alivePlayers = Map.filter (\p -> playerStatus p == Alive) ps
-  put game {gamePlayers = alivePlayers}
-  os <- case inputEvent of
-             TurnLeft nick -> turnLeft nick
-             TurnRight nick -> turnRight nick
-             Tick -> tick
-  curGame <- get
-  put curGame {gamePlayers = Map.union (gamePlayers curGame) deadPlayers }
-  return os
+
+  if not $ isValidEvent inputEvent game
+  then return []
+  else do
+    let deadPlayers = Map.filter (\p -> playerStatus p == Dead) ps
+        alivePlayers = Map.filter (\p -> playerStatus p == Alive) ps
+    put game {gamePlayers = alivePlayers}
+    os <- case inputEvent of
+               TurnLeft nick -> turnLeft nick
+               TurnRight nick -> turnRight nick
+               Tick -> tick
+    curGame <- get
+    put curGame {gamePlayers = Map.union (gamePlayers curGame) deadPlayers }
+    return os
+
+isValidEvent :: InputEvent -> Game -> Bool
+isValidEvent event game = case event of
+  Tick -> True
+  TurnLeft nick -> isPlayerAlive nick game
+  TurnRight nick -> isPlayerAlive nick game
+
+isPlayerAlive :: PlayerNick -> Game -> Bool
+isPlayerAlive nick Game {..} =
+  fromMaybe False . fmap ((== Alive) . playerStatus) . Map.lookup nick $ gamePlayers
 
 stopAtBoundary :: GameConfig -> Coordinate -> Coordinate
 stopAtBoundary (GameConfig w h _ _) (x, y) =
