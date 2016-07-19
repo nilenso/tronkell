@@ -18,7 +18,7 @@ data Game = Game { gameWinner  :: Maybe Player
 data GameStatus = InProgress | Finished
                   deriving (Eq, Enum, Show)
 
-newtype PlayerNick = PlayerNick String
+newtype PlayerNick = PlayerNick { getPlayerNick :: String }
                      deriving (Eq, Ord, Show)
 
 data Player = Player { playerNick        :: PlayerNick
