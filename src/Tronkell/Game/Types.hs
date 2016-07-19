@@ -32,7 +32,7 @@ data PlayerStatus = Alive | Dead
                     deriving (Show, Eq, Enum)
 
 data Orientation = North | East | South | West
-                   deriving (Enum, Bounded, Show)
+                   deriving (Eq, Enum, Bounded, Show)
 
 type Coordinate = (Int, Int)
 

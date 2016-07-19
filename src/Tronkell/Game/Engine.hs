@@ -81,11 +81,12 @@ turn :: (Orientation -> Orientation) -> PlayerNick -> State Game [OutEvent]
 turn getNewOrientation nick = do
   game@Game{..} <- get
   let player         = fromJust . Map.lookup nick $ gamePlayers
-      newPlayer      = player { playerOrientation = getNewOrientation . playerOrientation $ player}
+      newOrientation = getNewOrientation . playerOrientation $ player
+      newPlayer      = player { playerOrientation = newOrientation }
       newGamePlayers = Map.insert nick newPlayer gamePlayers
       newGame        = game { gamePlayers = newGamePlayers }
   put newGame
-  return []
+  return [PlayerMoved nick (playerCoordinate newPlayer) newOrientation]
 
 orientations :: [Orientation]
 orientations = [minBound..maxBound]

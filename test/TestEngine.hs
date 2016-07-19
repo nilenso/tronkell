@@ -8,7 +8,7 @@ import Tronkell.Game.Engine
 
 import qualified Data.Map as Map
 import Data.List (nub, nubBy)
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, fromJust)
 import System.Random
 
 import Test.Hspec
@@ -91,6 +91,22 @@ main = hspec $ do
             (_, game') = runEngine gameEngine game events
         in testPlayerProperty (isPlayerOnGrid game') game'
 
+    it "changes player orientation on turn event" $
+      property $ \game (Positive eventNo, Positive playerNo) ->
+        let event = genEvent game (Positive (eventNo `mod` 2 + 1),
+                                   Positive playerNo)
+            nick = case event of
+              TurnLeft nick -> nick
+              TurnRight nick -> nick
+              _ -> error "eventNo `mod` 2 + 1 made sure that we got one of above events."
+            oldOrientation = getPlayerOrientation nick game
+            expectedOrientation = doTurn event oldOrientation
+            ([PlayerMoved nick' _ orientation'], game') = runEngine gameEngine game [event]
+            actualOrientation = getPlayerOrientation nick game'
+        in expectedOrientation == actualOrientation &&
+           nick == nick' &&
+           actualOrientation == orientation'
+
   where
     testPlayerProperty f = and . Map.map f . gamePlayers
 
@@ -102,3 +118,15 @@ main = hspec $ do
         1 -> TurnLeft nick
         2 -> TurnRight nick
         _ -> error "Should never happen"
+
+    getPlayerOrientation nick game = playerOrientation . fromJust . Map.lookup nick $ gamePlayers game
+
+    doTurn event oldOrientation =
+      case (oldOrientation, event) of
+        (North, TurnLeft _ ) -> West
+        (West, TurnLeft _) -> South
+        (South, TurnLeft _) -> East
+        (East, TurnLeft _) -> North
+        (_, TurnRight x) ->
+          let doLeftTurn = doTurn (TurnLeft x)
+          in doLeftTurn . doLeftTurn . doLeftTurn $ oldOrientation
