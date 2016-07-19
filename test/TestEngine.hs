@@ -107,6 +107,12 @@ main = hspec $ do
            nick == nick' &&
            actualOrientation == orientation'
 
+    it "moves player by number of tick events" $
+      property $ \game (Positive steps) ->
+        let (_, game') = runEngine gameEngine game $ replicate steps Tick
+            expectedPositions = Map.map (movePlayer steps (gameConfig game)) $ gamePlayers game
+            actualPositions = getPlayersField playerCoordinate $ game'
+        in expectedPositions == actualPositions
   where
     testPlayerProperty f = and . Map.map f . gamePlayers
 
@@ -130,3 +136,14 @@ main = hspec $ do
         (_, TurnRight x) ->
           let doLeftTurn = doTurn (TurnLeft x)
           in doLeftTurn . doLeftTurn . doLeftTurn $ oldOrientation
+
+    getPlayersField field game = Map.map field $ gamePlayers game
+
+    movePlayer steps GameConfig{..} player@Player{..} =
+      let (x, y) = playerCoordinate
+          newCoordinate = case playerOrientation of
+            North -> (x, max (y - steps) 0)
+            South -> (x, min (y + steps) (gameHeight - 1))
+            West  -> (max (x - steps) 0, y)
+            East  -> (min (x + steps) (gameWidth - 1), y)
+      in newCoordinate
