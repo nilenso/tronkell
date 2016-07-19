@@ -53,9 +53,9 @@ movePlayerForward gameConfig player@Player{..} =
   let (x,y)       = playerCoordinate
       newPosition = case playerOrientation of
                       North -> (x, y-1)
-                      East  -> (x-1, y)
+                      East  -> (x+1, y)
                       South -> (x, y+1)
-                      West  -> (x+1, y)
+                      West  -> (x-1, y)
   in player { playerCoordinate = stopAtBoundary gameConfig newPosition,
               playerStatus     = computePlayerStatus gameConfig newPosition }
 
