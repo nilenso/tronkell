@@ -15,21 +15,15 @@ runEngine engine game inEvents = runState (engine inEvents) game
 
 runEvent :: InputEvent -> State Game [OutEvent]
 runEvent inputEvent = do
-  game@(Game _ ps _ _ ) <- get
+  game <- get
 
   if not $ isValidEvent inputEvent game
   then return []
-  else do
-    let deadPlayers  = Map.filter ((== Dead)  . playerStatus) ps
-        alivePlayers = Map.filter ((== Alive) . playerStatus) ps
-    put game {gamePlayers = alivePlayers}
-    os <- case inputEvent of
+  else
+    case inputEvent of
       TurnLeft  nick -> turnLeft nick
       TurnRight nick -> turnRight nick
       Tick           -> tick
-    curGame <- get
-    put curGame { gamePlayers = Map.union (gamePlayers curGame) deadPlayers }
-    return os
 
 isValidEvent :: InputEvent -> Game -> Bool
 isValidEvent event game = case event of
