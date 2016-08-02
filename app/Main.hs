@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Monad.State
+import Tronkell.Types
 import Tronkell.Game.Types
 import Tronkell.Game.Engine
 import qualified Data.Map as Map

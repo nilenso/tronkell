@@ -3,6 +3,8 @@ module Tronkell.Game.Types where
 import Control.Monad.State
 import Data.Map
 
+import Tronkell.Types
+
 data GameConfig = GameConfig { gameWidth          :: Int
                              , gameHeight         :: Int
                              , gamePlayerSpeed    :: Int
@@ -30,11 +32,6 @@ data Player = Player { playerNick        :: PlayerNick
 
 data PlayerStatus = Alive | Dead
                     deriving (Show, Eq, Enum)
-
-data Orientation = North | East | South | West
-                   deriving (Eq, Enum, Bounded, Show)
-
-type Coordinate = (Int, Int)
 
 type Trail = [Coordinate]
 

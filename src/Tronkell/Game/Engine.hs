@@ -3,9 +3,11 @@
 module Tronkell.Game.Engine where
 
 import Control.Monad.State
-import Tronkell.Game.Types
 import Data.Maybe (fromJust)
 import qualified Data.Map as Map
+
+import Tronkell.Types
+import Tronkell.Game.Types
 
 gameEngine :: GameEngine
 gameEngine = fmap concat . mapM runEvent
