@@ -3,6 +3,7 @@
 
 module Main where
 
+import Tronkell.Types
 import Tronkell.Game.Types
 import Tronkell.Game.Engine
 
