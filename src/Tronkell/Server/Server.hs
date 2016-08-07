@@ -120,7 +120,6 @@ playClient clientId clientHdl Server{..} = do
 
   writeChan serverChan (PlayerExit clientId)
   hClose clientHdl
-  return ()
 
 decodeMessage :: UserID -> String -> Maybe InMessage
 decodeMessage userId msg = case msg of
@@ -147,11 +146,10 @@ handleIncomingMessages server@Server{..} = do
                                  modifyMVar_ serverGame $ \_ -> return $ Just $ Game Nothing players InProgress serverGameConfig
                                  writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
 
-    PlayerExit clientId -> do usersCount <- modifyMVar serverUsers $ \users -> do
-                                let leftUsers = filter (\user -> (userId user) /= clientId) users
-                                return (leftUsers, length leftUsers)
-                              when (usersCount < 2) $ do outmsgs <- runGame serverGame $ PlayerQuit (userIdToPlayerNick clientId)
-                                                         mapM_ (writeChan clientsChan) outmsgs
+    PlayerExit clientId -> do modifyMVar_ serverUsers $ \users -> do
+                                return $ filter (\user -> (userId user) /= clientId) users
+                              outmsgs <- runGame serverGame $ PlayerQuit (userIdToPlayerNick clientId)
+                              mapM_ (writeChan clientsChan) outmsgs
 
     PlayerTurnLeft clientId -> do outmsgs <- runGame serverGame $ TurnLeft (userIdToPlayerNick clientId)
                                   mapM_ (writeChan clientsChan) outmsgs
