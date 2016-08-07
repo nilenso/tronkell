@@ -8,8 +8,6 @@ import Tronkell.Types
 import Tronkell.Game.Engine as Engine
 
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
-import Network.Socket.ByteString
-import qualified Data.ByteString.Char8 as C
 
 import Control.Concurrent
 -- import qualified Data.Text.Encoding as E
@@ -20,6 +18,7 @@ import Control.Monad.Fix (fix)
 import Control.Exception
 import qualified Data.Map as M (fromList, elems, Map)
 
+import System.IO
 
 startServer :: Game.GameConfig -> IO ()
 startServer gConfig = do
@@ -46,7 +45,9 @@ type ClientId = Int
 mainLoop :: Server -> ClientId -> IO ()
 mainLoop server@Server{..} clientId = do
   (conn, _) <- accept serverSocket
-  forkIO $ runClient conn server clientId
+  clientHdl <- socketToHandle conn ReadWriteMode
+  hSetBuffering clientHdl NoBuffering
+  forkIO $ runClient clientHdl server clientId
   mainLoop server (clientId + 1)
 
 nickToUserId :: String -> UserID
@@ -58,69 +59,71 @@ isNickTaken nick users = elem (nickToUserId nick) . map userId $ users
 mkUser :: String -> User
 mkUser nick = User (nickToUserId nick) Waiting
 
-runClient :: Socket -> Server -> ClientId -> IO ()
-runClient clientSocket server@Server{..} clientId = do
-  send clientSocket $ C.pack "Take a nick name : "
-  let maxNameLength = 20
-  nick <- fmap cleanByteString $ recv clientSocket maxNameLength
+runClient :: Handle -> Server -> ClientId -> IO ()
+runClient clientHdl server@Server{..} clientId = do
+  hPutStr clientHdl "Take a nick name : "
+  nick <- fmap cleanString $ hGetLine clientHdl
   let userId = nickToUserId nick
   added <- modifyMVar serverUsers $ \users ->
     if isNickTaken nick users
     then return (users, False)
     else return ((mkUser nick : users), True)
   if False == added
-  then runClient clientSocket server clientId
+  then runClient clientHdl server clientId
   else do writeChan serverChan $ PlayerJoined userId
-          send clientSocket $ C.pack ("Hi.. " ++
-                                       nick ++
-                                       ".. Type ready when you are ready to play.. quit to quit.")
-          fix $ \loop -> do ready <- recv clientSocket 5
-                            case cleanByteString ready of
-                             "ready" -> playClient userId clientSocket server
+          hPutStrLn clientHdl $ "Hi.. " ++ nick ++ ".. Type ready when you are ready to play.. quit to quit."
+          fix $ \loop -> do ready <- fmap cleanString $ hGetLine clientHdl
+                            case ready of
+                             "ready" -> playClient userId clientHdl server
                              "quit" -> writeChan serverChan (PlayerExit userId)
                              _ -> loop
 
-cleanByteString :: C.ByteString -> String
-cleanByteString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse . C.unpack
+cleanString :: String -> String
+cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse -- . C.unpack
 
-playClient :: UserID -> Socket -> Server -> IO ()
-playClient clientId clientSocket Server{..} = do
-  writeChan serverChan $ PlayerReady clientId
-  send clientSocket $ C.pack "Waiting for other players to start the game...!!!\n"
+playClient :: UserID -> Handle -> Server -> IO ()
+playClient clientId clientHdl Server{..} = do
+  hPutStrLn clientHdl "Waiting for other players to start the game...!!!"
 
   -- because every client wants same copy of the message, duplicate channel.
   outClientChan <- dupChan clientsChan
   writer <- forkIO $ fix $ \loop -> do
     outmsg <- readChan outClientChan
-    send clientSocket $ C.pack (show outmsg)
+    hPutStrLn clientHdl $ show outmsg
     loop
 
+  clientInternalChan <- dupChan internalChan
+
+  -- only after duplicating the internalChan, send the PlayerReady msg,
+  -- otherwise gameready msg for this second client joining is lost.
+  writeChan serverChan $ PlayerReady clientId
+
   -- block on ready-signal from server-thread to start the game.
-  signal <- readChan internalChan
+  signal <- readChan clientInternalChan
   case signal of
     GameReadySignal config players -> writeChan outClientChan $ GameReady config players
 
-  send clientSocket $ C.pack "Here.. you go!!!\n"
-  send clientSocket $ C.pack "Movements: type L for left , R for right, Q for quit... enjoy.\n"
+  hPutStrLn clientHdl "Here.. you go!!!"
+  hPutStrLn clientHdl "Movements: type L for left , R for right, Q for quit... enjoy."
 
-  let maxBytesToRecv = 1024
   handle (\(SomeException _) -> return ()) $ fix $ \loop ->
     do
-      inmsg <- recv clientSocket maxBytesToRecv
-      if C.null inmsg
-      then return () -- client ended the connection.
-      else case decodeMessage clientId inmsg of
-             Just (PlayerExit _) -> send clientSocket (C.pack "Sayonara !!!") >> return ()
-             Just msg -> writeChan serverChan msg >> loop
-             Nothing -> loop
+      canRead <- hIsReadable clientHdl
+      when canRead $ do
+        inmsg <- fmap cleanString $ hGetLine clientHdl
+        case decodeMessage clientId inmsg of
+          Just (PlayerExit _) -> hPutStrLn clientHdl "Sayonara !!!" >> return ()
+          Just msg -> writeChan serverChan msg >> loop
+          Nothing -> loop
 
   killThread writer
 
   writeChan serverChan (PlayerExit clientId)
+  hClose clientHdl
   return ()
 
-decodeMessage :: UserID -> C.ByteString -> Maybe InMessage
-decodeMessage userId msg = case cleanByteString msg of
+decodeMessage :: UserID -> String -> Maybe InMessage
+decodeMessage userId msg = case msg of
   "L" -> Just $ PlayerTurnLeft userId
   "R" -> Just $ PlayerTurnRight userId
   "Q" -> Just $ PlayerExit userId
@@ -167,7 +170,7 @@ runGame serverGame event = do mgame <- readMVar serverGame
                               case mgame of
                                 Nothing -> return []
                                 Just game -> do let (outevents, game') = Engine.runEngine Engine.gameEngine game [event]
-                                                modifyMVar serverGame $ \g -> return (Just game', outEventsToOutMsgs outevents)
+                                                modifyMVar serverGame $ \_ -> return (Just game', outEventsToOutMsgs outevents)
 
 outEventsToOutMsgs :: [OutEvent] -> [OutMessage]
 outEventsToOutMsgs outEvents = map encode outEvents
