@@ -21,17 +21,24 @@ runEvent inputEvent = do
 
   if not $ isValidEvent inputEvent game
   then return []
+  else if not $ isGameInProgress game
+  then return []
   else
     case inputEvent of
       TurnLeft  nick -> turnLeft nick
       TurnRight nick -> turnRight nick
       Tick           -> tick
+      PlayerQuit nick -> playerQuit nick
 
 isValidEvent :: InputEvent -> Game -> Bool
 isValidEvent event game = case event of
   Tick           -> True
   TurnLeft  nick -> isPlayerAlive nick game
   TurnRight nick -> isPlayerAlive nick game
+  PlayerQuit nick -> isPlayerAlive nick game
+
+isGameInProgress :: Game -> Bool
+isGameInProgress = (== InProgress) . gameStatus
 
 isPlayerAlive :: PlayerNick -> Game -> Bool
 isPlayerAlive nick =
@@ -75,6 +82,26 @@ turnRight = turn (getNextEnum 1)
 
 turnLeft :: PlayerNick -> State Game [OutEvent]
 turnLeft = turn (getNextEnum 3)
+
+playerQuit :: PlayerNick -> State Game [OutEvent]
+playerQuit nick = do
+  game@Game{..} <- get
+  let player         = fromJust . Map.lookup nick $ gamePlayers
+      newPlayer      = player { playerStatus = Dead }
+      newGamePlayers = Map.insert nick newPlayer gamePlayers
+      alivePlayers   = filter ((== Alive) . playerStatus) $ Map.elems newGamePlayers
+      noAlivePlayers = length alivePlayers
+      winner         = if noAlivePlayers == 1 then Just (head alivePlayers) else Nothing
+      status         = if noAlivePlayers > 1 then InProgress else Finished
+      newGame        = game { gamePlayers = newGamePlayers,
+                              gameStatus  = status,
+                              gameWinner  = winner
+                            }
+  put newGame
+  return $ PlayerDied nick (playerCoordinate newPlayer) : case status of
+    InProgress -> []
+    Finished -> [GameEnded (fmap playerNick winner)]
+
 
 getNextEnum :: Int -> Orientation -> Orientation
 getNextEnum turnTimes i = head . drop (turnTimes + fromEnum i) . cycle $ orientations

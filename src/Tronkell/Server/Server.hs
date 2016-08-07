@@ -180,7 +180,7 @@ outEventsToOutMsgs outEvents = map encode outEvents
   where encode oevent = case oevent of
           Game.PlayerMoved nick coord orien -> Server.PlayerMoved (playerNickToUserId nick) coord orien
           Game.PlayerDied nick coord -> Server.PlayerDied (playerNickToUserId nick) coord
-          Game.GameEnded nick -> Server.GameEnded (playerNickToUserId nick)
+          Game.GameEnded nick -> Server.GameEnded (fmap playerNickToUserId nick)
 
 playerNickToUserId :: PlayerNick -> UserID
 playerNickToUserId = UserID . T.pack . getPlayerNick

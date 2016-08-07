@@ -35,7 +35,7 @@ data InMessage = PlayerJoined    UserID
 data OutMessage = GameReady   Game.GameConfig [Game.Player]
                 | PlayerMoved UserID Coordinate Orientation
                 | PlayerDied  UserID Coordinate
-                | GameEnded   UserID
+                | GameEnded   (Maybe UserID)
                 deriving (Show)
 
 data ServerSignals = GameReadySignal Game.GameConfig [Game.Player]
