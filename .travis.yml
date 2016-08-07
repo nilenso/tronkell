@@ -39,3 +39,10 @@ cache:
 
 notifications:
   slack: nilenso:33YejjSAlFvg4kt9Efr3xPFR
+
+# Specify which branches to build using a safelist, or blocklist branches
+# that you do not want to be built:
+# safelist
+branches:
+  only:
+  - master
