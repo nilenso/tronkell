@@ -95,15 +95,22 @@ playClient clientId clientSocket Server{..} = do
       inmsg <- recv clientSocket maxBytesToRecv
       if C.null inmsg
       then return ()
-      else writeChan serverChan (decodeMessage clientId inmsg) >> loop
+      else case decodeMessage clientId inmsg of
+             Just (PlayerExit _) -> send clientSocket (C.pack "Sayonara !!!") >> return ()
+             Just msg -> writeChan serverChan msg >> loop
+             Nothing -> loop
 
   killThread writer
 
   writeChan serverChan (PlayerExit clientId)
   return ()
 
-decodeMessage :: UserID -> C.ByteString -> InMessage
-decodeMessage userId msg = PlayerTurnLeft userId
+decodeMessage :: UserID -> C.ByteString -> Maybe InMessage
+decodeMessage userId msg = case cleanByteString msg of
+  "L" -> Just $ PlayerTurnLeft userId
+  "R" -> Just $ PlayerTurnRight userId
+  "Q" -> Just $ PlayerExit userId
+  _ -> Nothing
 
 
 handleIncomingMessages :: Server -> IO ()
@@ -115,7 +122,7 @@ handleIncomingMessages server@Server{..} = do
     PlayerExit clientId -> do modifyMVar_ serverUsers $ \users ->
                                 let newUsers = filter (\user -> (userId user) /= clientId) users
                                 in return newUsers
-    PlayerTurnLeft userId -> return ()
-    PlayerTurnRight userId -> return ()
+    PlayerTurnLeft _ -> return ()
+    PlayerTurnRight _ -> return ()
 
   handleIncomingMessages server
