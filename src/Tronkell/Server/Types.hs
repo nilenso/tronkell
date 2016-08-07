@@ -12,6 +12,7 @@ data Server = Server { serverGameConfig :: Game.GameConfig
                      , serverSocket     :: Socket
                      , serverChan       :: Chan InMessage
                      , clientsChan      :: Chan OutMessage
+                     , internalChan     :: Chan ServerSignals
                      }
 
 newtype UserID = UserID { getUserID :: T.Text }
@@ -36,3 +37,5 @@ data OutMessage = GameReady   Game.GameConfig [Game.Player]
                 | PlayerDied  UserID Coordinate
                 | GameEnded   UserID
                 deriving (Show)
+
+data ServerSignals = GameReadySignal Game.GameConfig [Game.Player]

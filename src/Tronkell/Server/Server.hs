@@ -4,6 +4,7 @@ module Tronkell.Server.Server where
 
 import Tronkell.Server.Types
 import Tronkell.Game.Types as Game
+import Tronkell.Types
 
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
@@ -13,8 +14,11 @@ import Control.Concurrent
 -- import qualified Data.Text.Encoding as E
 import qualified Data.Text as T
 
+import Control.Monad (when)
 import Control.Monad.Fix (fix)
 import Control.Exception
+import qualified Data.Map as M (fromList, elems, Map)
+
 
 startServer :: Game.GameConfig -> IO ()
 startServer gConfig = do
@@ -28,8 +32,9 @@ startServer gConfig = do
   playersVar <- newMVar []
   serverChan <- newChan
   clientsChan <- newChan
+  internalChan <- newChan
 
-  let server = Server gConfig gameVar playersVar sock serverChan clientsChan
+  let server = Server gConfig gameVar playersVar sock serverChan clientsChan internalChan
 
   forkIO $ handleIncomingMessages server
 
@@ -80,7 +85,7 @@ cleanByteString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse .
 playClient :: UserID -> Socket -> Server -> IO ()
 playClient clientId clientSocket Server{..} = do
   writeChan serverChan $ PlayerReady clientId
-  send clientSocket $ C.pack "Here.. you go!!!"
+  send clientSocket $ C.pack "Waiting for other players to start the game...!!!\n"
 
   -- because every client wants same copy of the message, duplicate channel.
   outClientChan <- dupChan clientsChan
@@ -89,12 +94,20 @@ playClient clientId clientSocket Server{..} = do
     send clientSocket $ C.pack (show outmsg)
     loop
 
+  -- block on ready-signal from server-thread to start the game.
+  signal <- readChan internalChan
+  case signal of
+    GameReadySignal config players -> writeChan outClientChan $ GameReady config players
+
+  send clientSocket $ C.pack "Here.. you go!!!\n"
+  send clientSocket $ C.pack "Movements: type L for left , R for right, Q for quit... enjoy.\n"
+
   let maxBytesToRecv = 1024
   handle (\(SomeException _) -> return ()) $ fix $ \loop ->
     do
       inmsg <- recv clientSocket maxBytesToRecv
       if C.null inmsg
-      then return ()
+      then return () -- client ended the connection.
       else case decodeMessage clientId inmsg of
              Just (PlayerExit _) -> send clientSocket (C.pack "Sayonara !!!") >> return ()
              Just msg -> writeChan serverChan msg >> loop
@@ -118,11 +131,26 @@ handleIncomingMessages server@Server{..} = do
   inMsg <- readChan serverChan
   case inMsg of
     PlayerJoined _ -> return () -- may want to tell the clients..
-    PlayerReady _ -> return () -- may want to tell the clients..
+    PlayerReady clientId -> do (readyUsersCount, allUsersCount) <-  modifyMVar serverUsers $ \users ->
+                                    let [user] = filter (\u -> (userId u) == clientId) users
+                                        newUsers = user{ userState = Ready } : (filter (\u -> (userId u) /= clientId) users)
+                                        readyUsers = filter (\u -> (userState u) == Ready) users
+                                    in return (newUsers, (length readyUsers, length users))
+                               -- if all users are ready, start the game.
+                               when (allUsersCount > 1 && readyUsersCount == allUsersCount) $ do
+                                 users <- readMVar serverUsers
+                                 let players = playersFromUsers users
+                                 modifyMVar_ serverGame $ \_ -> return $ Just $ Game Nothing players InProgress serverGameConfig
+                                 writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
+
     PlayerExit clientId -> do modifyMVar_ serverUsers $ \users ->
-                                let newUsers = filter (\user -> (userId user) /= clientId) users
-                                in return newUsers
+                                return $ filter (\user -> (userId user) /= clientId) users
     PlayerTurnLeft _ -> return ()
     PlayerTurnRight _ -> return ()
 
   handleIncomingMessages server
+
+playersFromUsers :: [User] -> M.Map PlayerNick Player
+playersFromUsers users = M.fromList $ map (\u -> let nick = PlayerNick (T.unpack . getUserID . userId $ u)
+                                                     player = Player nick Alive (0,0) North []
+                                                 in (nick, player)) users
