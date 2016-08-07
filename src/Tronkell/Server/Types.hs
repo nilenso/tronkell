@@ -11,6 +11,7 @@ data Server = Server { serverGameConfig :: Game.GameConfig
                      , serverUsers      :: MVar [User]
                      , serverSocket     :: Socket
                      , serverChan       :: Chan InMessage
+                     , clientsChan      :: Chan OutMessage
                      }
 
 newtype UserID = UserID { getUserID :: T.Text }

@@ -10,7 +10,11 @@ import Network.Socket.ByteString
 import qualified Data.ByteString.Char8 as C
 
 import Control.Concurrent
-import qualified Data.Text.Encoding as E
+-- import qualified Data.Text.Encoding as E
+import qualified Data.Text as T
+
+import Control.Monad.Fix (fix)
+import Control.Exception
 
 startServer :: Game.GameConfig -> IO ()
 startServer gConfig = do
@@ -23,8 +27,12 @@ startServer gConfig = do
   gameVar <- newMVar Nothing
   playersVar <- newMVar []
   serverChan <- newChan
+  clientsChan <- newChan
 
-  let server = Server gConfig gameVar playersVar sock serverChan
+  let server = Server gConfig gameVar playersVar sock serverChan clientsChan
+
+  forkIO $ handleIncomingMessages server
+
   mainLoop server 0
 
 type ClientId = Int
@@ -35,24 +43,79 @@ mainLoop server@Server{..} clientId = do
   forkIO $ runClient conn server clientId
   mainLoop server (clientId + 1)
 
-nickToUserId :: C.ByteString -> UserID
-nickToUserId = UserID . E.decodeUtf8
+nickToUserId :: String -> UserID
+nickToUserId = UserID . T.pack
 
-isNickTaken :: C.ByteString -> [User] -> Bool
+isNickTaken :: String -> [User] -> Bool
 isNickTaken nick users = elem (nickToUserId nick) . map userId $ users
 
-mkUser :: C.ByteString -> User
+mkUser :: String -> User
 mkUser nick = User (nickToUserId nick) Waiting
 
 runClient :: Socket -> Server -> ClientId -> IO ()
 runClient clientSocket server@Server{..} clientId = do
   send clientSocket $ C.pack "Take a nick name : "
   let maxNameLength = 20
-  nick <- recv clientSocket maxNameLength
+  nick <- fmap cleanByteString $ recv clientSocket maxNameLength
+  let userId = nickToUserId nick
   added <- modifyMVar serverUsers $ \users ->
     if isNickTaken nick users
     then return (users, False)
     else return ((mkUser nick : users), True)
   if False == added
   then runClient clientSocket server clientId
-  else return ()
+  else do writeChan serverChan $ PlayerJoined userId
+          send clientSocket $ C.pack ("Hi.. " ++
+                                       nick ++
+                                       ".. Type ready when you are ready to play.. quit to quit.")
+          fix $ \loop -> do ready <- recv clientSocket 5
+                            case cleanByteString ready of
+                             "ready" -> playClient userId clientSocket server
+                             "quit" -> writeChan serverChan (PlayerExit userId)
+                             _ -> loop
+
+cleanByteString :: C.ByteString -> String
+cleanByteString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse . C.unpack
+
+playClient :: UserID -> Socket -> Server -> IO ()
+playClient clientId clientSocket Server{..} = do
+  writeChan serverChan $ PlayerReady clientId
+  send clientSocket $ C.pack "Here.. you go!!!"
+
+  -- because every client wants same copy of the message, duplicate channel.
+  outClientChan <- dupChan clientsChan
+  writer <- forkIO $ fix $ \loop -> do
+    outmsg <- readChan outClientChan
+    send clientSocket $ C.pack (show outmsg)
+    loop
+
+  let maxBytesToRecv = 1024
+  handle (\(SomeException _) -> return ()) $ fix $ \loop ->
+    do
+      inmsg <- recv clientSocket maxBytesToRecv
+      if C.null inmsg
+      then return ()
+      else writeChan serverChan (decodeMessage clientId inmsg) >> loop
+
+  killThread writer
+
+  writeChan serverChan (PlayerExit clientId)
+  return ()
+
+decodeMessage :: UserID -> C.ByteString -> InMessage
+decodeMessage userId msg = PlayerTurnLeft userId
+
+
+handleIncomingMessages :: Server -> IO ()
+handleIncomingMessages server@Server{..} = do
+  inMsg <- readChan serverChan
+  case inMsg of
+    PlayerJoined _ -> return () -- may want to tell the clients..
+    PlayerReady _ -> return () -- may want to tell the clients..
+    PlayerExit clientId -> do modifyMVar_ serverUsers $ \users ->
+                                let newUsers = filter (\user -> (userId user) /= clientId) users
+                                in return newUsers
+    PlayerTurnLeft userId -> return ()
+    PlayerTurnRight userId -> return ()
+
+  handleIncomingMessages server
