@@ -38,6 +38,7 @@ type Trail = [Coordinate]
 data InputEvent = Tick
                 | TurnLeft  PlayerNick
                 | TurnRight PlayerNick
+                | PlayerQuit PlayerNick
                 deriving (Show)
 
 data OutEvent = PlayerMoved PlayerNick Coordinate Orientation
