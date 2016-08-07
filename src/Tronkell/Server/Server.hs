@@ -2,9 +2,10 @@
 
 module Tronkell.Server.Server where
 
-import Tronkell.Server.Types
+import Tronkell.Server.Types as Server
 import Tronkell.Game.Types as Game
 import Tronkell.Types
+import Tronkell.Game.Engine as Engine
 
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 import Network.Socket.ByteString
@@ -134,7 +135,7 @@ handleIncomingMessages server@Server{..} = do
     PlayerReady clientId -> do (readyUsersCount, allUsersCount) <-  modifyMVar serverUsers $ \users ->
                                     let [user] = filter (\u -> (userId u) == clientId) users
                                         newUsers = user{ userState = Ready } : (filter (\u -> (userId u) /= clientId) users)
-                                        readyUsers = filter (\u -> (userState u) == Ready) users
+                                        readyUsers = filter (\u -> (userState u) == Ready) newUsers
                                     in return (newUsers, (length readyUsers, length users))
                                -- if all users are ready, start the game.
                                when (allUsersCount > 1 && readyUsersCount == allUsersCount) $ do
@@ -145,12 +146,35 @@ handleIncomingMessages server@Server{..} = do
 
     PlayerExit clientId -> do modifyMVar_ serverUsers $ \users ->
                                 return $ filter (\user -> (userId user) /= clientId) users
-    PlayerTurnLeft _ -> return ()
-    PlayerTurnRight _ -> return ()
+
+    PlayerTurnLeft clientId -> do outmsgs <- runGame serverGame $ TurnLeft (userIdToPlayerNick clientId)
+                                  mapM_ (writeChan clientsChan) outmsgs
+    PlayerTurnRight clientId -> do outmsgs <- runGame serverGame $ TurnRight (userIdToPlayerNick clientId)
+                                   mapM_ (writeChan clientsChan) outmsgs
 
   handleIncomingMessages server
 
 playersFromUsers :: [User] -> M.Map PlayerNick Player
-playersFromUsers users = M.fromList $ map (\u -> let nick = PlayerNick (T.unpack . getUserID . userId $ u)
+playersFromUsers users = M.fromList $ map (\u -> let nick = userIdToPlayerNick . userId $ u
                                                      player = Player nick Alive (0,0) North []
                                                  in (nick, player)) users
+
+userIdToPlayerNick :: UserID -> PlayerNick
+userIdToPlayerNick = PlayerNick . T.unpack . getUserID
+
+runGame :: MVar (Maybe Game) -> InputEvent -> IO ([OutMessage])
+runGame serverGame event = do mgame <- readMVar serverGame
+                              case mgame of
+                                Nothing -> return []
+                                Just game -> do let (outevents, game') = Engine.runEngine Engine.gameEngine game [event]
+                                                modifyMVar serverGame $ \g -> return (Just game', outEventsToOutMsgs outevents)
+
+outEventsToOutMsgs :: [OutEvent] -> [OutMessage]
+outEventsToOutMsgs outEvents = map encode outEvents
+  where encode oevent = case oevent of
+          Game.PlayerMoved nick coord orien -> Server.PlayerMoved (playerNickToUserId nick) coord orien
+          Game.PlayerDied nick coord -> Server.PlayerDied (playerNickToUserId nick) coord
+          Game.GameEnded nick -> Server.GameEnded (playerNickToUserId nick)
+
+playerNickToUserId :: PlayerNick -> UserID
+playerNickToUserId = UserID . T.pack . getPlayerNick
