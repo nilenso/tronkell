@@ -2,13 +2,18 @@ module Tronkell.Server.Types where
 
 import Tronkell.Types
 import Tronkell.Game.Types as Game
+import Control.Concurrent
+import Network.Socket
+import qualified Data.Text as T
 
 data Server = Server { serverGameConfig :: Game.GameConfig
-                     , serverGame       :: Maybe Game.Game
-                     , serverPlayers    :: [User]
-                     } deriving (Show)
+                     , serverGame       :: MVar (Maybe Game.Game)
+                     , serverUsers      :: MVar [User]
+                     , serverSocket     :: Socket
+                     , serverChan       :: Chan InMessage
+                     }
 
-newtype UserID = UserID { getUserID :: String }
+newtype UserID = UserID { getUserID :: T.Text }
                  deriving (Eq, Show, Ord)
 
 data User = User { userId    :: UserID
