@@ -28,15 +28,14 @@ startServer gConfig = do
   let maxQueuedConnections = 5
   listen sock maxQueuedConnections
 
-  gameVar <- newMVar Nothing
   playersVar <- newMVar []
   serverChan <- newChan
   clientsChan <- newChan
   internalChan <- newChan
 
-  let server = Server gConfig gameVar playersVar sock serverChan clientsChan internalChan
+  let server = Server gConfig playersVar sock serverChan clientsChan internalChan
 
-  forkIO $ handleIncomingMessages server
+  forkIO $ handleIncomingMessages server Nothing
 
   mainLoop server 0
 
@@ -129,34 +128,40 @@ decodeMessage userId msg = case msg of
   _ -> Nothing
 
 
-handleIncomingMessages :: Server -> IO ()
-handleIncomingMessages server@Server{..} = do
+handleIncomingMessages :: Server -> Maybe Game -> IO ()
+handleIncomingMessages server@Server{..} game = do
   inMsg <- readChan serverChan
-  case inMsg of
-    PlayerJoined _ -> return () -- may want to tell the clients..
+  game' <- case inMsg of
+    PlayerJoined _ -> return Nothing -- may want to tell the clients..
     PlayerReady clientId -> do (readyUsersCount, allUsersCount) <-  modifyMVar serverUsers $ \users ->
                                     let [user] = filter (\u -> (userId u) == clientId) users
                                         newUsers = user{ userState = Ready } : (filter (\u -> (userId u) /= clientId) users)
                                         readyUsers = filter (\u -> (userState u) == Ready) newUsers
                                     in return (newUsers, (length readyUsers, length users))
                                -- if all users are ready, start the game.
-                               when (allUsersCount > 1 && readyUsersCount == allUsersCount) $ do
+                               if (allUsersCount > 1 && readyUsersCount == allUsersCount)
+                               then do
                                  users <- readMVar serverUsers
                                  let players = playersFromUsers users
-                                 modifyMVar_ serverGame $ \_ -> return $ Just $ Game Nothing players InProgress serverGameConfig
                                  writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
+                                 return $ Just $ Game Nothing players InProgress serverGameConfig
+                               else
+                                 return Nothing
 
     PlayerExit clientId -> do modifyMVar_ serverUsers $ \users -> do
                                 return $ filter (\user -> (userId user) /= clientId) users
-                              outmsgs <- runGame serverGame $ PlayerQuit (userIdToPlayerNick clientId)
+                              let (outmsgs, game') = runGame game $ PlayerQuit (userIdToPlayerNick clientId)
                               mapM_ (writeChan clientsChan) outmsgs
+                              return game'
 
-    PlayerTurnLeft clientId -> do outmsgs <- runGame serverGame $ TurnLeft (userIdToPlayerNick clientId)
+    PlayerTurnLeft clientId -> do let (outmsgs, game') = runGame game $ TurnLeft (userIdToPlayerNick clientId)
                                   mapM_ (writeChan clientsChan) outmsgs
-    PlayerTurnRight clientId -> do outmsgs <- runGame serverGame $ TurnRight (userIdToPlayerNick clientId)
+                                  return game'
+    PlayerTurnRight clientId -> do let (outmsgs, game') = runGame game $ TurnRight (userIdToPlayerNick clientId)
                                    mapM_ (writeChan clientsChan) outmsgs
+                                   return game'
 
-  handleIncomingMessages server
+  handleIncomingMessages server game'
 
 playersFromUsers :: [User] -> M.Map PlayerNick Player
 playersFromUsers users = M.fromList $ map (\u -> let nick = userIdToPlayerNick . userId $ u
@@ -166,12 +171,11 @@ playersFromUsers users = M.fromList $ map (\u -> let nick = userIdToPlayerNick .
 userIdToPlayerNick :: UserID -> PlayerNick
 userIdToPlayerNick = PlayerNick . T.unpack . getUserID
 
-runGame :: MVar (Maybe Game) -> InputEvent -> IO ([OutMessage])
-runGame serverGame event = do mgame <- readMVar serverGame
-                              case mgame of
-                                Nothing -> return []
-                                Just game -> do let (outevents, game') = Engine.runEngine Engine.gameEngine game [event]
-                                                modifyMVar serverGame $ \_ -> return (Just game', outEventsToOutMsgs outevents)
+runGame :: Maybe Game -> InputEvent -> ([OutMessage], Maybe Game)
+runGame game event =
+  case game of
+    Nothing -> ([], Nothing)
+    Just g  -> (\(es, g') -> (outEventsToOutMsgs es, Just g')) $ Engine.runEngine Engine.gameEngine g [event]
 
 outEventsToOutMsgs :: [OutEvent] -> [OutMessage]
 outEventsToOutMsgs outEvents = map encode outEvents
