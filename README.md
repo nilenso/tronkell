@@ -84,7 +84,6 @@
 - The server computes the new state of the game for each tick event
 - The server sends out the state of the game for every tick
 
-
 #### Grid Shape
 For the following grid, p1 is at (1,1) and p2 is at (2,3)
 
@@ -105,3 +104,19 @@ For the following grid, p1 is at (1,1) and p2 is at (2,3)
 |-----+---+----+----+---|
 | X-> | 0 |  1 |  2 | 3 |
 ```
+
+#### Threads
+
+- Run game engine, accept incoming messages from clients, (generate ticks?)
+  - [Mut] Reads list of clients, removes clients
+  - [Chan1] Receive InMessage
+  - [Chan2] Send OutMessage
+  - [Chan3] Send ServerSignal
+- Accept connections, spawn client Threads
+- Threads per client
+  - Accept messages, enqueue in channel
+  - Send messages from internal channel
+  - [Mut] Adds to list of clients
+  - [Chan1] Send InMessage
+  - [Chan2] Receive OutMessage
+  - [Chan3] Receive ServerSignal
