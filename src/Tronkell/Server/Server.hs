@@ -10,10 +10,9 @@ import Tronkell.Game.Engine as Engine
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 
 import Control.Concurrent
--- import qualified Data.Text.Encoding as E
 import qualified Data.Text as T
 
-import Control.Monad (when)
+import Control.Monad (void, when)
 import Control.Monad.Fix (fix)
 import Control.Exception
 import qualified Data.Map as M (fromList, elems, Map)
@@ -53,7 +52,7 @@ nickToUserId :: String -> UserID
 nickToUserId = UserID . T.pack
 
 isNickTaken :: String -> [User] -> Bool
-isNickTaken nick users = elem (nickToUserId nick) . map userId $ users
+isNickTaken nick = elem (nickToUserId nick) . map userId
 
 mkUser :: String -> User
 mkUser nick = User (nickToUserId nick) Waiting
@@ -61,17 +60,17 @@ mkUser nick = User (nickToUserId nick) Waiting
 runClient :: Handle -> Server -> ClientId -> IO ()
 runClient clientHdl server@Server{..} clientId = do
   hPutStr clientHdl "Take a nick name : "
-  nick <- fmap cleanString $ hGetLine clientHdl
+  nick <- cleanString <$> hGetLine clientHdl
   let userId = nickToUserId nick
   added <- modifyMVar serverUsers $ \users ->
     if isNickTaken nick users
     then return (users, False)
-    else return ((mkUser nick : users), True)
-  if False == added
+    else return (mkUser nick : users, True)
+  if added
   then runClient clientHdl server clientId
   else do writeChan serverChan $ PlayerJoined userId
           hPutStrLn clientHdl $ "Hi.. " ++ nick ++ ".. Type ready when you are ready to play.. quit to quit."
-          fix $ \loop -> do ready <- fmap cleanString $ hGetLine clientHdl
+          fix $ \loop -> do ready <- cleanString <$> hGetLine clientHdl
                             case ready of
                              "ready" -> playClient userId clientHdl server
                              "quit" -> writeChan serverChan (PlayerExit userId)
@@ -88,7 +87,7 @@ playClient clientId clientHdl Server{..} = do
   outClientChan <- dupChan clientsChan
   writer <- forkIO $ fix $ \loop -> do
     outmsg <- readChan outClientChan
-    hPutStrLn clientHdl $ show outmsg
+    hPrint clientHdl outmsg
     loop
 
   clientInternalChan <- dupChan internalChan
@@ -109,9 +108,9 @@ playClient clientId clientHdl Server{..} = do
     do
       canRead <- hIsReadable clientHdl
       when canRead $ do
-        inmsg <- fmap cleanString $ hGetLine clientHdl
+        inmsg <- cleanString <$> hGetLine clientHdl
         case decodeMessage clientId inmsg of
-          Just (PlayerExit _) -> hPutStrLn clientHdl "Sayonara !!!" >> return ()
+          Just (PlayerExit _) -> void $ hPutStrLn clientHdl "Sayonara !!!"
           Just msg -> writeChan serverChan msg >> loop
           Nothing -> loop
 
@@ -127,33 +126,32 @@ decodeMessage userId msg = case msg of
   "Q" -> Just $ PlayerExit userId
   _   -> Nothing
 
+-- Adds user to user list and returns whether all users are ready
+updateUserReady :: UserID -> [User] -> IO ([User], Bool)
+updateUserReady clientId users =
+  let newUsers   = map (\u -> if userId u == clientId then u{ userState = Ready } else u) users
+      -- We have at least 2 users, and all users are ready
+      ready      = length users > 1 && all ((Ready ==) . userState) newUsers
+  in return (newUsers, ready)
 
 handleIncomingMessages :: Server -> Maybe Game -> IO ()
 handleIncomingMessages server@Server{..} game = do
   inMsg <- readChan serverChan
   game' <- case inMsg of
-    PlayerJoined _       -> return Nothing -- may want to tell the clients..
-    PlayerReady clientId -> handlePlayerReady clientId
-
-    PlayerExit clientId -> do modifyMVar_ serverUsers $ \users -> do
-                                return $ filter (\user -> (userId user) /= clientId) users
-                              let (outmsgs, game') = runGame game $ PlayerQuit (userIdToPlayerNick clientId)
-                              mapM_ (writeChan clientsChan) outmsgs
-                              return game'
-
-    PlayerTurnLeft clientId -> do let (outmsgs, game') = runGame game $ TurnLeft (userIdToPlayerNick clientId)
-                                  mapM_ (writeChan clientsChan) outmsgs
-                                  return game'
-    PlayerTurnRight clientId -> do let (outmsgs, game') = runGame game $ TurnRight (userIdToPlayerNick clientId)
-                                   mapM_ (writeChan clientsChan) outmsgs
-                                   return game'
+    PlayerJoined _           -> return Nothing -- may want to tell the clients..
+    PlayerReady clientId     -> processPlayerReady clientId
+    PlayerTurnLeft  clientId -> processEvent TurnLeft (userIdToPlayerNick clientId)
+    PlayerTurnRight clientId -> processEvent TurnRight (userIdToPlayerNick clientId)
+    PlayerExit      clientId -> do
+      modifyMVar_ serverUsers (return . filter ((clientId /=) . userId))
+      processEvent PlayerQuit (userIdToPlayerNick clientId)
 
   handleIncomingMessages server game'
   where
-    handlePlayerReady clientId = do
-      (readyUsersCount, allUsersCount) <- modifyMVar serverUsers $ updateUsers clientId
+    processPlayerReady clientId = do
+      ready <- modifyMVar serverUsers $ updateUserReady clientId
       -- if all users are ready, start the game.
-      if allUsersCount > 1 && readyUsersCount == allUsersCount
+      if ready
       then do
         users <- readMVar serverUsers
         let players = playersFromUsers users
@@ -161,11 +159,10 @@ handleIncomingMessages server@Server{..} game = do
         return $ Just $ Game Nothing players InProgress serverGameConfig
       else
         return Nothing
-
-    updateUsers clientId users =
-      let newUsers   = map (\u -> if userId u == clientId then u{ userState = Ready } else u) users
-          readyUsers = filter ((Ready ==) . userState) newUsers
-      in return (newUsers, (length readyUsers, length users))
+    processEvent event nick = do
+      let (outmsgs, game') = runGame game $ event nick
+      writeList2Chan clientsChan outmsgs
+      return game'
 
 playersFromUsers :: [User] -> M.Map PlayerNick Player
 playersFromUsers = M.fromList . map userToPlayer
