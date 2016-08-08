@@ -125,28 +125,15 @@ decodeMessage userId msg = case msg of
   "L" -> Just $ PlayerTurnLeft userId
   "R" -> Just $ PlayerTurnRight userId
   "Q" -> Just $ PlayerExit userId
-  _ -> Nothing
+  _   -> Nothing
 
 
 handleIncomingMessages :: Server -> Maybe Game -> IO ()
 handleIncomingMessages server@Server{..} game = do
   inMsg <- readChan serverChan
   game' <- case inMsg of
-    PlayerJoined _ -> return Nothing -- may want to tell the clients..
-    PlayerReady clientId -> do (readyUsersCount, allUsersCount) <-  modifyMVar serverUsers $ \users ->
-                                    let [user] = filter (\u -> (userId u) == clientId) users
-                                        newUsers = user{ userState = Ready } : (filter (\u -> (userId u) /= clientId) users)
-                                        readyUsers = filter (\u -> (userState u) == Ready) newUsers
-                                    in return (newUsers, (length readyUsers, length users))
-                               -- if all users are ready, start the game.
-                               if (allUsersCount > 1 && readyUsersCount == allUsersCount)
-                               then do
-                                 users <- readMVar serverUsers
-                                 let players = playersFromUsers users
-                                 writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
-                                 return $ Just $ Game Nothing players InProgress serverGameConfig
-                               else
-                                 return Nothing
+    PlayerJoined _       -> return Nothing -- may want to tell the clients..
+    PlayerReady clientId -> handlePlayerReady clientId
 
     PlayerExit clientId -> do modifyMVar_ serverUsers $ \users -> do
                                 return $ filter (\user -> (userId user) /= clientId) users
@@ -162,11 +149,31 @@ handleIncomingMessages server@Server{..} game = do
                                    return game'
 
   handleIncomingMessages server game'
+  where
+    handlePlayerReady clientId = do
+      (readyUsersCount, allUsersCount) <- modifyMVar serverUsers $ updateUsers clientId
+      -- if all users are ready, start the game.
+      if allUsersCount > 1 && readyUsersCount == allUsersCount
+      then do
+        users <- readMVar serverUsers
+        let players = playersFromUsers users
+        writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
+        return $ Just $ Game Nothing players InProgress serverGameConfig
+      else
+        return Nothing
+
+    updateUsers clientId users =
+      let newUsers   = map (\u -> if userId u == clientId then u{ userState = Ready } else u) users
+          readyUsers = filter ((Ready ==) . userState) newUsers
+      in return (newUsers, (length readyUsers, length users))
 
 playersFromUsers :: [User] -> M.Map PlayerNick Player
-playersFromUsers users = M.fromList $ map (\u -> let nick = userIdToPlayerNick . userId $ u
-                                                     player = Player nick Alive (0,0) North []
-                                                 in (nick, player)) users
+playersFromUsers = M.fromList . map userToPlayer
+  where
+    userToPlayer u =
+      let nick   = userIdToPlayerNick . userId $ u
+          player = Player nick Alive (0,0) North []
+      in (nick, player)
 
 userIdToPlayerNick :: UserID -> PlayerNick
 userIdToPlayerNick = PlayerNick . T.unpack . getUserID
@@ -175,14 +182,14 @@ runGame :: Maybe Game -> InputEvent -> ([OutMessage], Maybe Game)
 runGame game event =
   case game of
     Nothing -> ([], Nothing)
-    Just g  -> (\(es, g') -> (outEventsToOutMsgs es, Just g')) $ Engine.runEngine Engine.gameEngine g [event]
+    Just g  -> (\(es, g') -> (outEventToOutMessage <$> es, Just g')) $ Engine.runEngine Engine.gameEngine g [event]
 
-outEventsToOutMsgs :: [OutEvent] -> [OutMessage]
-outEventsToOutMsgs outEvents = map encode outEvents
-  where encode oevent = case oevent of
-          Game.PlayerMoved nick coord orien -> Server.PlayerMoved (playerNickToUserId nick) coord orien
-          Game.PlayerDied nick coord -> Server.PlayerDied (playerNickToUserId nick) coord
-          Game.GameEnded nick -> Server.GameEnded (fmap playerNickToUserId nick)
+outEventToOutMessage :: OutEvent -> OutMessage
+outEventToOutMessage event =
+  case event of
+    Game.PlayerMoved nick coord orien -> Server.PlayerMoved (playerNickToUserId nick) coord orien
+    Game.PlayerDied  nick coord       -> Server.PlayerDied  (playerNickToUserId nick) coord
+    Game.GameEnded   nick             -> Server.GameEnded   (fmap playerNickToUserId nick)
 
 playerNickToUserId :: PlayerNick -> UserID
 playerNickToUserId = UserID . T.pack . getPlayerNick
