@@ -108,10 +108,10 @@ main = hspec $ do
               TurnLeft nick -> nick
               TurnRight nick -> nick
               _ -> error "eventNo `mod` 2 + 1 made sure that we got one of above events."
-            oldOrientation = getPlayerOrientation nick game
+            oldOrientation = getPlayerField playerOrientation nick game
             expectedOrientation = doTurn event oldOrientation
             ([PlayerMoved nick' _ orientation'], game') = runEngine gameEngine game [event]
-            actualOrientation = getPlayerOrientation nick game'
+            actualOrientation = getPlayerField playerOrientation nick game'
         in expectedOrientation == actualOrientation &&
            nick == nick' &&
            actualOrientation == orientation'
@@ -122,19 +122,31 @@ main = hspec $ do
             expectedPositions = Map.map (movePlayer steps (gameConfig game)) $ gamePlayers game
             actualPositions = getPlayersField playerCoordinate $ game'
         in expectedPositions == actualPositions
+
+    it "changes player status to dead after he quits" $
+      property $ \game@Game{..} (Positive playerNo) ->
+        let nick = Map.keys gamePlayers !! (playerNo `mod` Map.size gamePlayers)
+            playerOldCoord = getPlayerField playerCoordinate nick game
+            (PlayerDied nick' coord' : _, game') = runEngine gameEngine game [PlayerQuit nick]
+            playerNewStatus = getPlayerField playerStatus nick game'
+        in playerNewStatus == Dead &&
+           nick == nick' &&
+           playerOldCoord == coord'
+
   where
     testPlayerProperty f = and . Map.map f . gamePlayers
 
     genEvent :: Game -> (Positive Int, Positive Int) -> InputEvent
     genEvent Game {..} (Positive eventNo, Positive playerNo) =
       let nick = Map.keys gamePlayers !! (playerNo `mod` Map.size gamePlayers)
-      in case eventNo `mod` 3 of
+      in case eventNo `mod` 4 of
         0 -> Tick
         1 -> TurnLeft nick
         2 -> TurnRight nick
+        3 -> PlayerQuit nick
         _ -> error "Should never happen"
 
-    getPlayerOrientation nick game = playerOrientation . fromJust . Map.lookup nick $ gamePlayers game
+    getPlayerField field nick game = field . fromJust . Map.lookup nick $ gamePlayers game
 
     doTurn event oldOrientation =
       case (oldOrientation, event) of
