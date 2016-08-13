@@ -110,7 +110,7 @@ main = hspec $ do
               _ -> error "eventNo `mod` 2 + 1 made sure that we got one of above events."
             oldOrientation = getPlayerField playerOrientation nick game
             expectedOrientation = doTurn event oldOrientation
-            ([PlayerMoved nick' _ orientation'], game') = runEngine gameEngine game [event]
+            (PlayerMoved nick' _ orientation' : _, game') = runEngine gameEngine game [event]
             actualOrientation = getPlayerField playerOrientation nick game'
         in expectedOrientation == actualOrientation &&
            nick == nick' &&
@@ -121,7 +121,7 @@ main = hspec $ do
         let (_, game') = runEngine gameEngine game $ replicate steps Tick
             expectedPositions = Map.map (movePlayer steps (gameConfig game)) $ gamePlayers game
             actualPositions = getPlayersField playerCoordinate $ game'
-        in expectedPositions == actualPositions
+        in (expectedPositions == actualPositions) || (gameStatus game') == Finished
 
     it "changes player status to dead after he quits" $
       property $ \game@Game{..} (Positive playerNo) ->
@@ -132,6 +132,19 @@ main = hspec $ do
         in playerNewStatus == Dead &&
            nick == nick' &&
            playerOldCoord == coord'
+
+    it "Game finishes when players quit one by one" $
+      property $ \game eventsAndPlayerNos ->
+        if length eventsAndPlayerNos > 0
+        then let events = map (genEvent game) eventsAndPlayerNos
+                 quitEvents = map PlayerQuit $ Map.keys (gamePlayers game)
+                 allEvents = events ++ quitEvents
+                 (_, game') = runEngine gameEngine game allEvents
+             -- we can not check for last quitting player to be the winner,
+             -- as because of the movements in Tick, he can also die earlier.
+             -- what is guaranteed is that Game should finish.
+             in gameStatus game' == Finished
+        else True
 
   where
     testPlayerProperty f = and . Map.map f . gamePlayers

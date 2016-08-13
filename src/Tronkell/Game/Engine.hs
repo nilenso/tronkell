@@ -23,12 +23,30 @@ runEvent inputEvent = do
   then return []
   else if not $ isGameInProgress game
   then return []
-  else
-    case inputEvent of
+  else do
+    outEvents <- case inputEvent of
       TurnLeft  nick -> turnLeft nick
       TurnRight nick -> turnRight nick
       Tick           -> tick
       PlayerQuit nick -> playerQuit nick
+
+    statusEvents <- setGameStatus
+    return $ outEvents ++ statusEvents
+
+setGameStatus :: State Game [OutEvent]
+setGameStatus = do
+  game' <- get
+  let alivePlayers   = filter ((== Alive) . playerStatus) $ Map.elems (gamePlayers game')
+      noAlivePlayers = length alivePlayers
+      winner         = if noAlivePlayers == 1 then Just (head alivePlayers) else Nothing
+      status         = if noAlivePlayers > 1 then InProgress else Finished
+
+  put game' { gameStatus  = status,
+              gameWinner  = winner
+            }
+  return $ case status of
+    InProgress -> []
+    Finished -> [GameEnded (fmap playerNick winner)]
 
 isValidEvent :: InputEvent -> Game -> Bool
 isValidEvent event game = case event of
@@ -89,19 +107,8 @@ playerQuit nick = do
   let player         = fromJust . Map.lookup nick $ gamePlayers
       newPlayer      = player { playerStatus = Dead }
       newGamePlayers = Map.insert nick newPlayer gamePlayers
-      alivePlayers   = filter ((== Alive) . playerStatus) $ Map.elems newGamePlayers
-      noAlivePlayers = length alivePlayers
-      winner         = if noAlivePlayers == 1 then Just (head alivePlayers) else Nothing
-      status         = if noAlivePlayers > 1 then InProgress else Finished
-      newGame        = game { gamePlayers = newGamePlayers,
-                              gameStatus  = status,
-                              gameWinner  = winner
-                            }
-  put newGame
-  return $ PlayerDied nick (playerCoordinate newPlayer) : case status of
-    InProgress -> []
-    Finished -> [GameEnded (fmap playerNick winner)]
-
+  put game { gamePlayers = newGamePlayers }
+  return [PlayerDied nick (playerCoordinate newPlayer)]
 
 getNextEnum :: Int -> Orientation -> Orientation
 getNextEnum turnTimes i = head . drop (turnTimes + fromEnum i) . cycle $ orientations

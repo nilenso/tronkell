@@ -44,7 +44,7 @@ data InputEvent = Tick
 data OutEvent = PlayerMoved PlayerNick Coordinate Orientation
               | PlayerDied  PlayerNick Coordinate
               | GameEnded   (Maybe PlayerNick)
-              deriving (Show)
+              deriving (Show, Eq, Ord)
 
 -- type GameEngine = [InputEvent] -> Game -> ([OutEvent], Game)
 type GameEngine = [InputEvent] -> State Game [OutEvent]
