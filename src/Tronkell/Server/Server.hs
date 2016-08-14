@@ -10,6 +10,8 @@ import Tronkell.Game.Engine as Engine
 import Network.Socket hiding (send, sendTo, recv, recvFrom)
 
 import Control.Concurrent
+import Control.Concurrent.STM
+
 import qualified Data.Text as T
 
 import Control.Monad (void, when)
@@ -28,7 +30,7 @@ startServer gConfig = do
   listen sock maxQueuedConnections
 
   playersVar <- newMVar []
-  serverChan <- newChan
+  serverChan <- atomically $ newTChan
   clientsChan <- newChan
   internalChan <- newChan
 
@@ -69,12 +71,12 @@ runClient clientHdl server@Server{..} clientId = do
 
   if failedToAdd
   then runClient clientHdl server clientId
-  else do writeChan serverChan $ PlayerJoined userId
+  else do atomically $ writeTChan serverChan $ PlayerJoined userId
           hPutStrLn clientHdl $ "Hi.. " ++ nick ++ ".. Type ready when you are ready to play.. quit to quit."
           fix $ \loop -> do ready <- cleanString <$> hGetLine clientHdl
                             case ready of
                              "ready" -> playClient userId clientHdl server
-                             "quit" -> writeChan serverChan (PlayerExit userId)
+                             "quit" -> atomically $ writeTChan serverChan $ PlayerExit userId
                              _ -> loop
 
 cleanString :: String -> String
@@ -95,7 +97,7 @@ playClient clientId clientHdl Server{..} = do
 
   -- only after duplicating the internalChan, send the PlayerReady msg,
   -- otherwise gameready msg for this second client joining is lost.
-  writeChan serverChan $ PlayerReady clientId
+  atomically $ writeTChan serverChan $ PlayerReady clientId
 
   -- block on ready-signal from server-thread to start the game.
   signal <- readChan clientInternalChan
@@ -112,12 +114,12 @@ playClient clientId clientHdl Server{..} = do
         inmsg <- cleanString <$> hGetLine clientHdl
         case decodeMessage clientId inmsg of
           Just (PlayerExit _) -> void $ hPutStrLn clientHdl "Sayonara !!!"
-          Just msg -> writeChan serverChan msg >> loop
+          Just msg -> atomically (writeTChan serverChan msg) >> loop
           Nothing -> loop
 
   killThread writer
 
-  writeChan serverChan (PlayerExit clientId)
+  atomically $ writeTChan serverChan (PlayerExit clientId)
   hClose clientHdl
 
 decodeMessage :: UserID -> String -> Maybe InMessage
@@ -137,7 +139,7 @@ updateUserReady clientId users =
 
 handleIncomingMessages :: Server -> Maybe Game -> IO ()
 handleIncomingMessages server@Server{..} game = do
-  inMsg <- readChan serverChan
+  inMsg <- atomically $ readTChan serverChan
   game' <- case inMsg of
     PlayerJoined _           -> return Nothing -- may want to tell the clients..
     PlayerReady clientId     -> processPlayerReady clientId

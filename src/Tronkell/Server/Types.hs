@@ -2,14 +2,15 @@ module Tronkell.Server.Types where
 
 import Tronkell.Types
 import Tronkell.Game.Types as Game
-import Control.Concurrent
+import Control.Concurrent.STM (TChan)
+import Control.Concurrent (MVar, Chan)
 import Network.Socket
 import qualified Data.Text as T
 
 data Server = Server { serverGameConfig :: Game.GameConfig
                      , serverUsers      :: MVar [User]
                      , serverSocket     :: Socket
-                     , serverChan       :: Chan InMessage
+                     , serverChan       :: TChan InMessage
                      , clientsChan      :: Chan OutMessage
                      , internalChan     :: Chan ServerSignals
                      }
