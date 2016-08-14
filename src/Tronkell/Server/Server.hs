@@ -148,8 +148,8 @@ readMsgs channel = atomically $ readAll channel
 oneSecond :: Int
 oneSecond = 1000000
 
-processEvents :: Server -> Maybe Game -> [InMessage] -> IO (Maybe Game)
-processEvents server@Server{..} game inMsgs = foldM threadGameOverEvent game inMsgs
+processMessages :: Server -> Maybe Game -> [InMessage] -> IO (Maybe Game)
+processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game inMsgs
   where threadGameOverEvent g' inMsg = case inMsg of
           PlayerJoined _           -> return game
           PlayerReady clientId     -> processPlayerReady clientId
@@ -183,7 +183,7 @@ handleIncomingMessages :: Server -> Maybe Game -> IO ()
 handleIncomingMessages server@Server{..} game = do
   threadDelay . quot oneSecond . gameTicksPerSecond $ serverGameConfig
   inMsgs <- readMsgs serverChan
-  game' <- processEvents server game inMsgs
+  game' <- processMessages server game inMsgs
   game'' <- processEvent server game' Tick
   handleIncomingMessages server game''
 
