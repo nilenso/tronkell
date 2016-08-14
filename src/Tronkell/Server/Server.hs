@@ -179,7 +179,7 @@ processEvent Server{..} g event = do
 
 handleIncomingMessages :: Server -> Maybe Game -> IO ()
 handleIncomingMessages server@Server{..} game = do
-  threadDelay oneSecond
+  threadDelay . quot oneSecond . gameTicksPerSecond $ serverGameConfig
   inMsgs <- readMsgs serverChan
   game' <- processEvents server game inMsgs
   game'' <- processEvent server game' Tick
