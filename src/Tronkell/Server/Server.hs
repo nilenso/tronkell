@@ -62,11 +62,12 @@ runClient clientHdl server@Server{..} clientId = do
   hPutStr clientHdl "Take a nick name : "
   nick <- cleanString <$> hGetLine clientHdl
   let userId = nickToUserId nick
-  added <- modifyMVar serverUsers $ \users ->
+  failedToAdd <- modifyMVar serverUsers $ \users ->
     if isNickTaken nick users
-    then return (users, False)
-    else return (mkUser nick : users, True)
-  if added
+    then return (users, True)
+    else return (mkUser nick : users, False)
+
+  if failedToAdd
   then runClient clientHdl server clientId
   else do writeChan serverChan $ PlayerJoined userId
           hPutStrLn clientHdl $ "Hi.. " ++ nick ++ ".. Type ready when you are ready to play.. quit to quit."
