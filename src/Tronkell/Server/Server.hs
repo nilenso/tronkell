@@ -151,7 +151,7 @@ oneSecond = 1000000
 processEvents :: Server -> Maybe Game -> [InMessage] -> IO (Maybe Game)
 processEvents server@Server{..} game inMsgs = foldM threadGameOverEvent game inMsgs
   where threadGameOverEvent g' inMsg = case inMsg of
-          PlayerJoined _           -> return Nothing -- bug : should not process this in ongoing event.
+          PlayerJoined _           -> return game
           PlayerReady clientId     -> processPlayerReady clientId
           PlayerTurnLeft  clientId -> processEvent server g' $ TurnLeft (userIdToPlayerNick clientId)
           PlayerTurnRight clientId -> processEvent server g' $ TurnRight (userIdToPlayerNick clientId)
@@ -159,17 +159,19 @@ processEvents server@Server{..} game inMsgs = foldM threadGameOverEvent game inM
             modifyMVar_ serverUsers (return . filter ((clientId /=) . userId))
             processEvent server g' $ PlayerQuit (userIdToPlayerNick clientId)
 
-        processPlayerReady clientId = do
-          ready <- modifyMVar serverUsers $ updateUserReady clientId
-          -- if all users are ready, start the game.
-          if ready
-          then do
-            users <- readMVar serverUsers
-            let players = playersFromUsers users
-            writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
-            return $ Just $ Game Nothing players InProgress serverGameConfig
-          else
-            return Nothing
+        processPlayerReady clientId = case game of
+          Just game' -> return $ Just game'
+          Nothing -> do
+            ready <- modifyMVar serverUsers $ updateUserReady clientId
+            -- if all users are ready, start the game.
+            if ready
+            then do
+              users <- readMVar serverUsers
+              let players = playersFromUsers users
+              writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
+              return $ Just $ Game Nothing players InProgress serverGameConfig
+            else
+              return Nothing
 
 processEvent :: Server -> Maybe Game -> InputEvent -> IO (Maybe Game)
 processEvent Server{..} g event = do
