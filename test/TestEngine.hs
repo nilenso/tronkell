@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Main where
+module TestEngine where
 
 import Tronkell.Types
 import Tronkell.Game.Types

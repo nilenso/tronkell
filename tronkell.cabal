@@ -43,7 +43,7 @@ executable tronkell-exe
 test-suite tronkell-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             TestEngine.hs
+  main-is:             Main.hs
   build-depends:       base
                      , random
                      , containers
