@@ -9,7 +9,7 @@ import qualified Data.Map as Map
 import Tronkell.Server.Server
 
 main :: IO ()
-main = startServer $ GameConfig 3 3 1 1
+main = startServer $ GameConfig 100 100 1 1
   -- let p1 = Player (PlayerNick "player 1") Alive (1,1) North []
   --     p2 = Player (PlayerNick "player 2") Alive (2,2) North []
   --     config = GameConfig 3 3 1 1

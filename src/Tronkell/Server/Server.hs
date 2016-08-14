@@ -14,7 +14,7 @@ import Control.Concurrent.STM
 
 import qualified Data.Text as T
 
-import Control.Monad (void, when)
+import Control.Monad (void, when, foldM)
 import Control.Monad.Fix (fix)
 import Control.Exception
 import qualified Data.Map as M (fromList, elems, Map)
@@ -137,42 +137,60 @@ updateUserReady clientId users =
       ready      = length users > 1 && all ((Ready ==) . userState) newUsers
   in return (newUsers, ready)
 
+readMsgs :: TChan a -> IO [a]
+readMsgs channel = atomically $ readAll channel
+  where readAll c = do
+          emptyChan <- isEmptyTChan c
+          if emptyChan
+          then return []
+          else (:) <$> readTChan c <*> readAll c
+
+oneSecond :: Int
+oneSecond = 1000000
+
+processEvents :: Server -> Maybe Game -> [InMessage] -> IO (Maybe Game)
+processEvents server@Server{..} game inMsgs = foldM threadGameOverEvent game inMsgs
+  where threadGameOverEvent g' inMsg = case inMsg of
+          PlayerJoined _           -> return Nothing -- bug : should not process this in ongoing event.
+          PlayerReady clientId     -> processPlayerReady clientId
+          PlayerTurnLeft  clientId -> processEvent server g' $ TurnLeft (userIdToPlayerNick clientId)
+          PlayerTurnRight clientId -> processEvent server g' $ TurnRight (userIdToPlayerNick clientId)
+          PlayerExit      clientId -> do
+            modifyMVar_ serverUsers (return . filter ((clientId /=) . userId))
+            processEvent server g' $ PlayerQuit (userIdToPlayerNick clientId)
+
+        processPlayerReady clientId = do
+          ready <- modifyMVar serverUsers $ updateUserReady clientId
+          -- if all users are ready, start the game.
+          if ready
+          then do
+            users <- readMVar serverUsers
+            let players = playersFromUsers users
+            writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
+            return $ Just $ Game Nothing players InProgress serverGameConfig
+          else
+            return Nothing
+
+processEvent :: Server -> Maybe Game -> InputEvent -> IO (Maybe Game)
+processEvent Server{..} g event = do
+  let (outmsgs, game') = runGame g event
+  writeList2Chan clientsChan outmsgs
+  return game'
+
 handleIncomingMessages :: Server -> Maybe Game -> IO ()
 handleIncomingMessages server@Server{..} game = do
-  inMsg <- atomically $ readTChan serverChan
-  game' <- case inMsg of
-    PlayerJoined _           -> return Nothing -- may want to tell the clients..
-    PlayerReady clientId     -> processPlayerReady clientId
-    PlayerTurnLeft  clientId -> processEvent TurnLeft (userIdToPlayerNick clientId)
-    PlayerTurnRight clientId -> processEvent TurnRight (userIdToPlayerNick clientId)
-    PlayerExit      clientId -> do
-      modifyMVar_ serverUsers (return . filter ((clientId /=) . userId))
-      processEvent PlayerQuit (userIdToPlayerNick clientId)
-
-  handleIncomingMessages server game'
-  where
-    processPlayerReady clientId = do
-      ready <- modifyMVar serverUsers $ updateUserReady clientId
-      -- if all users are ready, start the game.
-      if ready
-      then do
-        users <- readMVar serverUsers
-        let players = playersFromUsers users
-        writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
-        return $ Just $ Game Nothing players InProgress serverGameConfig
-      else
-        return Nothing
-    processEvent event nick = do
-      let (outmsgs, game') = runGame game $ event nick
-      writeList2Chan clientsChan outmsgs
-      return game'
+  threadDelay oneSecond
+  inMsgs <- readMsgs serverChan
+  game' <- processEvents server game inMsgs
+  game'' <- processEvent server game' Tick
+  handleIncomingMessages server game''
 
 playersFromUsers :: [User] -> M.Map PlayerNick Player
 playersFromUsers = M.fromList . map userToPlayer
   where
     userToPlayer u =
       let nick   = userIdToPlayerNick . userId $ u
-          player = Player nick Alive (0,0) North []
+          player = Player nick Alive (10,10) North []
       in (nick, player)
 
 userIdToPlayerNick :: UserID -> PlayerNick
