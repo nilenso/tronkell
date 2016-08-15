@@ -80,7 +80,7 @@ runClient clientHdl server@Server{..} clientId = do
                              _ -> loop
 
 cleanString :: String -> String
-cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse -- . C.unpack
+cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
 
 playClient :: UserID -> Handle -> Server -> IO ()
 playClient clientId clientHdl Server{..} = do
