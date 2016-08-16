@@ -19,9 +19,7 @@ runEvent :: InputEvent -> State Game [OutEvent]
 runEvent inputEvent = do
   game <- get
 
-  if not $ isValidEvent inputEvent game
-  then return []
-  else if not $ isGameInProgress game
+  if not $ isValidEvent inputEvent game && isGameInProgress game
   then return []
   else do
     outEvents <- case inputEvent of

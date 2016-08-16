@@ -30,7 +30,7 @@ startServer gConfig = do
   listen sock maxQueuedConnections
 
   playersVar <- newMVar []
-  serverChan <- atomically $ newTChan
+  serverChan <- atomically newTChan
   clientsChan <- newChan
   internalChan <- newChan
 

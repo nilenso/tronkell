@@ -52,8 +52,8 @@ areOverlappingPlayers p1 p2 =
 genPlayer :: GameConfig -> Gen Player
 genPlayer GameConfig{..} = do
   nick <- PlayerNick <$> arbitrary
-  x    <- unBoundedInt <$> arbitrary `suchThat` (>= 0) `suchThat` (< (BoundedInt gameWidth))
-  y    <- unBoundedInt <$> arbitrary `suchThat` (>= 0) `suchThat` (< (BoundedInt gameHeight))
+  x    <- unBoundedInt <$> arbitrary `suchThat` (>= 0) `suchThat` (< BoundedInt gameWidth)
+  y    <- unBoundedInt <$> arbitrary `suchThat` (>= 0) `suchThat` (< BoundedInt gameHeight)
   o    <- arbitraryBoundedEnum
   return $ Player nick Alive (x, y) o []
 
@@ -120,8 +120,8 @@ main = hspec $ do
       property $ \game (Positive steps) ->
         let (_, game') = runEngine gameEngine game $ replicate steps Tick
             expectedPositions = Map.map (movePlayer steps (gameConfig game)) $ gamePlayers game
-            actualPositions = getPlayersField playerCoordinate $ game'
-        in (expectedPositions == actualPositions) || (gameStatus game') == Finished
+            actualPositions = getPlayersField playerCoordinate game'
+        in (expectedPositions == actualPositions) || (gameStatus game' == Finished)
 
     it "changes player status to dead after he quits" $
       property $ \game@Game{..} (Positive playerNo) ->
@@ -135,7 +135,7 @@ main = hspec $ do
 
     it "Game finishes when players quit one by one" $
       property $ \game eventsAndPlayerNos ->
-        if length eventsAndPlayerNos > 0
+        if not . null $ eventsAndPlayerNos
         then let events = map (genEvent game) eventsAndPlayerNos
                  quitEvents = map PlayerQuit $ Map.keys (gamePlayers game)
                  allEvents = events ++ quitEvents

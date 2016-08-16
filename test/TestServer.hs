@@ -24,18 +24,17 @@ instance Show Server where
 genServer = do
     let conf = GTypes.GameConfig 100 100 1 1
     users <- newMVar []
-    serverChan <- atomically $ newTChan
+    serverChan <- atomically newTChan
     clientsChan <- newChan
     internalChan <- newChan
     return $ Server conf users undefined serverChan clientsChan internalChan
 
 genHandle inputString = do
   knob <- MSocket.newMockSocket $ C.pack inputString
-  h <- newFileHandle knob "tmp.txt" ReadWriteMode
-  return h
+  newFileHandle knob "tmp.txt" ReadWriteMode
 
 main :: IO ()
-main = hspec $ do
+main = hspec $
   describe "runClient : " $ do
     it "should take user name first" $
       property $ \clientId -> monadicIO $ do
@@ -52,4 +51,4 @@ main = hspec $ do
         run $ modifyMVar_ (serverUsers server) $ \users -> return $ SServer.mkUser "Username1" : users
         run $ runClient clientHandle server clientId
         users <- run $ readMVar (serverUsers server)
-        assert $ length users == 2 && ["Username2", "Username1"] == (map (T.unpack . getUserID . userId) users)
+        assert $ length users == 2 && ["Username2", "Username1"] == map (T.unpack . getUserID . userId) users
