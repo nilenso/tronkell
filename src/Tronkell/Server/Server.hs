@@ -38,17 +38,17 @@ startServer gConfig = do
 
   forkIO $ handleIncomingMessages server Nothing
 
-  mainLoop server 0
+  mainLoop server
 
 type ClientId = Int
 
-mainLoop :: Server -> ClientId -> IO ()
-mainLoop server@Server{..} clientId = do
+mainLoop :: Server -> IO ()
+mainLoop server@Server{..} = do
   (conn, _) <- accept serverSocket
   clientHdl <- socketToHandle conn ReadWriteMode
   hSetBuffering clientHdl NoBuffering
-  forkIO $ runClient clientHdl server clientId
-  mainLoop server (clientId + 1)
+  forkIO $ runClient clientHdl server
+  mainLoop server
 
 nickToUserId :: String -> UserID
 nickToUserId = UserID . T.pack
@@ -59,8 +59,8 @@ isNickTaken nick = elem (nickToUserId nick) . map userId
 mkUser :: String -> User
 mkUser nick = User (nickToUserId nick) Waiting
 
-runClient :: Handle -> Server -> ClientId -> IO ()
-runClient clientHdl server@Server{..} clientId = do
+runClient :: Handle -> Server -> IO ()
+runClient clientHdl server@Server{..} = do
   hPutStr clientHdl "Take a nick name : "
   nick <- cleanString <$> hGetLine clientHdl
   let userId = nickToUserId nick
@@ -70,7 +70,7 @@ runClient clientHdl server@Server{..} clientId = do
     else return (mkUser nick : users, False)
 
   if failedToAdd
-  then runClient clientHdl server clientId
+  then runClient clientHdl server
   else do atomically $ writeTChan serverChan $ PlayerJoined userId
           hPutStrLn clientHdl $ "Hi.. " ++ nick ++ ".. Type ready when you are ready to play.. quit to quit."
           fix $ \loop -> do ready <- cleanString <$> hGetLine clientHdl

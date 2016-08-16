@@ -37,18 +37,18 @@ main :: IO ()
 main = hspec $
   describe "runClient : " $ do
     it "should take user name first" $
-      property $ \clientId -> monadicIO $ do
+      property $ monadicIO $ do
         clientHandle <- genHandle "username\r\nquit\r\nmore-random-input\r\n"
         server <- run genServer
-        run $ runClient clientHandle server clientId
+        run $ runClient clientHandle server
         users <- run $ readMVar (serverUsers server)
         assert $ length users == 1 && T.pack "username" == (getUserID . userId . head $ users)
 
     it "should ask again for user-name if already taken" $
-      property $ \clientId -> monadicIO $ do
+      property $ monadicIO $ do
         clientHandle <- genHandle "Username1\r\nUsername2\r\nquit\r\n"
         server <- run genServer
         run $ modifyMVar_ (serverUsers server) $ \users -> return $ SServer.mkUser "Username1" : users
-        run $ runClient clientHandle server clientId
+        run $ runClient clientHandle server
         users <- run $ readMVar (serverUsers server)
         assert $ length users == 2 && ["Username2", "Username1"] == map (T.unpack . getUserID . userId) users
