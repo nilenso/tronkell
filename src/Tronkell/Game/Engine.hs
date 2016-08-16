@@ -2,7 +2,7 @@
 
 module Tronkell.Game.Engine where
 
-import Control.Monad.State
+import Control.Monad.State.Strict
 import Data.Maybe (fromJust)
 import qualified Data.Map as Map
 
@@ -33,15 +33,15 @@ runEvent inputEvent = do
 
 setGameStatus :: State Game [OutEvent]
 setGameStatus = do
-  game' <- get
-  let alivePlayers   = filter ((== Alive) . playerStatus) $ Map.elems (gamePlayers game')
+  game <- get
+  let alivePlayers   = filter ((== Alive) . playerStatus) $ Map.elems (gamePlayers game)
       noAlivePlayers = length alivePlayers
       winner         = if noAlivePlayers == 1 then Just (head alivePlayers) else Nothing
       status         = if noAlivePlayers > 1 then InProgress else Finished
-
-  put game' { gameStatus  = status,
-              gameWinner  = winner
-            }
+      game'          = game { gameStatus  = status,
+                              gameWinner  = winner
+                            }
+  put game'
   return $ case status of
     InProgress -> []
     Finished -> [GameEnded (fmap playerNick winner)]
