@@ -73,25 +73,33 @@ computePlayerStatus (GameConfig w h _ _) (x, y) =
   then Dead
   else Alive
 
-movePlayerForward :: GameConfig -> Player -> Player
+movePlayerForward :: GameConfig -> Player -> (Player, [OutEvent])
 movePlayerForward gameConfig player@Player{..} =
-  let (x,y)       = playerCoordinate
-      newPosition = case playerOrientation of
+  if playerStatus == Dead
+  then (player, [])
+  else let (x,y)       = playerCoordinate
+           newPosition = case playerOrientation of
                       North -> (x, y-1)
                       East  -> (x+1, y)
                       South -> (x, y+1)
                       West  -> (x-1, y)
-  in player { playerCoordinate = stopAtBoundary gameConfig newPosition,
-              playerStatus     = computePlayerStatus gameConfig newPosition }
+           newCoordinate = stopAtBoundary gameConfig newPosition
+           newStatus     = computePlayerStatus gameConfig newPosition
+       in (player { playerCoordinate = newCoordinate,
+                    playerStatus     = newStatus },
+           PlayerMoved playerNick newCoordinate playerOrientation :
+            case newStatus of
+              Alive -> []
+              Dead  -> [PlayerDied playerNick newCoordinate])
 
 tick :: State Game [OutEvent]
 tick  = do
   game@Game{..} <- get
-  let movedPlayers = Map.map (movePlayerForward gameConfig) gamePlayers
-      newGame      = game { gamePlayers = movedPlayers }
-      playerToPlayerMove (Player n _ c o _) = PlayerMoved n c o
+  let playersAndMovesMap = Map.map (movePlayerForward gameConfig) gamePlayers
+      newGame            = game { gamePlayers = Map.map fst playersAndMovesMap }
+      moves              = concat <$> Map.elems . Map.map snd $ playersAndMovesMap
   put newGame
-  return . map playerToPlayerMove . Map.elems $ movedPlayers
+  return moves
 
 turnRight :: PlayerNick -> State Game [OutEvent]
 turnRight = turn (getNextEnum 1)
