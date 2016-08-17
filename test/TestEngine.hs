@@ -146,6 +146,18 @@ main = hspec $ do
              in gameStatus game' == Finished
         else True
 
+  describe "fired events" $ do
+    it "should have PlayerDied event in movePlayerForward when player dies" $
+      property $ \gameConfig -> forAll (genPlayer gameConfig) $ \player ->
+        let (p, _:diedEvents) = movePlayerForward gameConfig player
+        in case playerStatus p of
+          Alive -> diedEvents == []
+          Dead  -> case diedEvents of
+           [] -> False
+           event:_ -> case event of
+             PlayerDied _ _ -> True
+             _ -> False
+
   where
     testPlayerProperty f = and . Map.map f . gamePlayers
 
