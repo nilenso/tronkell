@@ -185,7 +185,10 @@ handleIncomingMessages server@Server{..} game = do
   inMsgs <- readMsgs serverChan
   game' <- processMessages server game inMsgs
   game'' <- processEvent server game' Tick
-  handleIncomingMessages server game''
+  case game'' of
+    Nothing -> handleIncomingMessages server game''
+    Just g  -> when (InProgress == gameStatus g) $
+      handleIncomingMessages server game''
 
 playersFromUsers :: [User] -> M.Map PlayerNick Player
 playersFromUsers = M.fromList . map userToPlayer
