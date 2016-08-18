@@ -13,6 +13,7 @@ import Control.Concurrent
 import Control.Concurrent.STM
 
 import qualified Data.Text as T
+import Data.Maybe (fromJust)
 
 import Control.Monad (void, when, foldM)
 import Control.Monad.Fix (fix)
@@ -36,7 +37,7 @@ startServer gConfig = do
 
   let server = Server gConfig playersVar sock serverChan clientsChan internalChan
 
-  forkIO $ handleIncomingMessages server Nothing
+  forkIO $ handleIncomingMessages server Nothing >> return ()
 
   mainLoop server
 
@@ -179,16 +180,21 @@ processEvent Server{..} g event = do
   writeList2Chan clientsChan outmsgs
   return game'
 
-handleIncomingMessages :: Server -> Maybe Game -> IO ()
+handleIncomingMessages :: Server -> Maybe Game -> IO (Game)
 handleIncomingMessages server@Server{..} game = do
   threadDelay . quot oneSecond . gameTicksPerSecond $ serverGameConfig
   inMsgs <- readMsgs serverChan
   game' <- processMessages server game inMsgs
   game'' <- processEvent server game' Tick
-  case game'' of
-    Nothing -> handleIncomingMessages server game''
-    Just g  -> when (InProgress == gameStatus g) $
-      handleIncomingMessages server game''
+
+  if isGameFinished game''
+  then return . fromJust $ game''
+  else handleIncomingMessages server game''
+
+  where
+    isGameFinished g = case g of
+     Nothing -> False
+     Just g'  -> Finished == gameStatus g'
 
 playersFromUsers :: [User] -> M.Map PlayerNick Player
 playersFromUsers = M.fromList . map userToPlayer
