@@ -1,5 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
-
 module Tronkell.Game.Types where
 
 import Control.Monad.State.Strict

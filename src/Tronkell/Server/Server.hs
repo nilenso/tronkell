@@ -180,7 +180,7 @@ processEvent Server{..} g event = do
   writeList2Chan clientsChan outmsgs
   return game'
 
-handleIncomingMessages :: Server -> Maybe Game -> IO (Game)
+handleIncomingMessages :: Server -> Maybe Game -> IO Game
 handleIncomingMessages server@Server{..} game = do
   threadDelay . quot oneSecond . gameTicksPerSecond $ serverGameConfig
   inMsgs <- readMsgs serverChan
