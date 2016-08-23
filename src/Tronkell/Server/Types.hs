@@ -36,6 +36,7 @@ data OutMessage = GameReady   Game.GameConfig [Game.Player]
                 | PlayerMoved UserID Coordinate Orientation
                 | PlayerDied  UserID Coordinate
                 | GameEnded   (Maybe UserID)
+                | ServerMsg   String
                 deriving (Show)
 
 data ServerSignals = GameReadySignal Game.GameConfig [Game.Player]
