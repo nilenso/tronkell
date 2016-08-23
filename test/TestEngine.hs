@@ -133,7 +133,7 @@ main = hspec $ do
            nick == nick' &&
            playerOldCoord == coord'
 
-    it "Game finishes when players quit one by one" $
+    it "finishes when players quit one by one" $
       property $ \game eventsAndPlayerNos ->
         if not . null $ eventsAndPlayerNos
         then let events = map (genEvent game) eventsAndPlayerNos
