@@ -85,10 +85,10 @@ cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
 
 playClient :: UserID -> Handle -> Server -> IO ()
 playClient clientId clientHdl Server{..} = do
-  hPutStrLn clientHdl "Waiting for other players to start the game...!!!"
-
-  -- because every client wants same copy of the message, duplicate channel.
+    -- because every client wants same copy of the message, duplicate channel.
   outClientChan <- dupChan clientsChan
+  writeChan outClientChan $ ServerMsg "Waiting for other players to start the game...!!!"
+
   writer <- forkIO $ fix $ \loop -> do
     outmsg <- readChan outClientChan
     hPrint clientHdl outmsg
@@ -105,16 +105,18 @@ playClient clientId clientHdl Server{..} = do
   case signal of
     GameReadySignal config players -> writeChan outClientChan $ GameReady config players
 
-  hPutStrLn clientHdl "Here.. you go!!!"
-  hPutStrLn clientHdl "Movements: type L for left , R for right, Q for quit... enjoy."
+  writeList2Chan outClientChan [ServerMsg "Here.. you go!!!",
+                                 ServerMsg "Movements: type L for left , R for right, Q for quit... enjoy."]
 
+  hFlush clientHdl
+  
   handle (\(SomeException _) -> return ()) $ fix $ \loop ->
     do
       canRead <- hIsReadable clientHdl
       when canRead $ do
         inmsg <- cleanString <$> hGetLine clientHdl
         case decodeMessage clientId inmsg of
-          Just (PlayerExit _) -> void $ hPutStrLn clientHdl "Sayonara !!!"
+          Just (PlayerExit _) -> void $ writeChan outClientChan $ ServerMsg "Sayonara !!!"
           Just msg -> atomically (writeTChan serverChan msg) >> loop
           Nothing -> loop
 
