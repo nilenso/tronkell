@@ -5,10 +5,11 @@ import Tronkell.Game.Types as Game
 import Control.Concurrent.STM (TChan)
 import Control.Concurrent (MVar, Chan)
 import Network (Socket)
+import qualified Data.Map as M
 import qualified Data.Text as T
 
 data Server = Server { serverGameConfig :: Game.GameConfig
-                     , serverUsers      :: MVar [User]
+                     , serverUsers      :: MVar (M.Map UserID User)
                      , serverSocket     :: Socket
                      , serverChan       :: TChan InMessage
                      , clientsChan      :: Chan OutMessage

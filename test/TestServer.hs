@@ -7,6 +7,7 @@ import Test.QuickCheck
 import Test.QuickCheck.Monadic
 
 import Data.ByteString.Char8 as C (pack)
+import qualified Data.Map as M
 import Data.Text as T (pack, unpack)
 import System.IO
 import Control.Concurrent
@@ -23,7 +24,7 @@ instance Show Server where
 
 genServer = do
     let conf = GTypes.GameConfig 100 100 1 1
-    users <- newMVar []
+    users <- newMVar M.empty
     serverChan <- atomically newTChan
     clientsChan <- newChan
     internalChan <- newChan
@@ -42,13 +43,13 @@ main = hspec $
         server <- run genServer
         run $ runClient clientHandle server
         users <- run $ readMVar (serverUsers server)
-        assert $ length users == 1 && T.pack "username" == (getUserID . userId . head $ users)
+        assert $ length users == 1 && T.pack "username" == (getUserID . userId . snd . head . M.toList $ users)
 
     it "should ask again for user-name if already taken" $
       property $ monadicIO $ do
         clientHandle <- genHandle "Username1\r\nUsername2\r\nquit\r\n"
         server <- run genServer
-        run $ modifyMVar_ (serverUsers server) $ \users -> return $ SServer.mkUser "Username1" : users
+        run $ modifyMVar_ (serverUsers server) $ \users -> return $ M.insert (UserID . T.pack $ "Username1") (SServer.mkUser "Username1") users
         run $ runClient clientHandle server
         users <- run $ readMVar (serverUsers server)
-        assert $ length users == 2 && ["Username2", "Username1"] == map (T.unpack . getUserID . userId) users
+        assert $ length users == 2 && ["Username1", "Username2"] == (fmap (T.unpack . getUserID . userId . snd) . M.toList $ users)

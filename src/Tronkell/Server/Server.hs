@@ -18,7 +18,7 @@ import Data.Maybe (fromJust)
 import Control.Monad (void, when, foldM)
 import Control.Monad.Fix (fix)
 import Control.Exception
-import qualified Data.Map as M (fromList, elems, Map)
+import qualified Data.Map as M
 
 import System.IO
 
@@ -26,7 +26,7 @@ startServer :: Game.GameConfig -> IO ()
 startServer gConfig = withSocketsDo $ do
   sock         <- listenOn . PortNumber $ 4242
 
-  playersVar   <- newMVar []
+  playersVar   <- newMVar M.empty
   serverChan   <- atomically newTChan
   clientsChan  <- newChan
   internalChan <- newChan
@@ -49,8 +49,8 @@ mainLoop server@Server{..} = do
 nickToUserId :: String -> UserID
 nickToUserId = UserID . T.pack
 
-isNickTaken :: String -> [User] -> Bool
-isNickTaken nick = elem (nickToUserId nick) . map userId
+isNickTaken :: M.Map UserID User -> String -> Bool
+isNickTaken users = flip M.member users . nickToUserId
 
 mkUser :: String -> User
 mkUser nick = User (nickToUserId nick) Waiting
@@ -61,9 +61,9 @@ runClient clientHdl server@Server{..} = do
   nick <- cleanString <$> hGetLine clientHdl
   let userId = nickToUserId nick
   failedToAdd <- modifyMVar serverUsers $ \users ->
-    if isNickTaken nick users
+    if isNickTaken users nick
     then return (users, True)
-    else return (mkUser nick : users, False)
+    else return (M.insert userId (mkUser nick) users, False)
 
   if failedToAdd
   then runClient clientHdl server
@@ -128,9 +128,9 @@ decodeMessage userId msg = case msg of
   _   -> Nothing
 
 -- Adds user to user list and returns whether all users are ready
-updateUserReady :: UserID -> [User] -> IO ([User], Bool)
+updateUserReady :: UserID -> M.Map UserID User -> IO (M.Map UserID User, Bool)
 updateUserReady clientId users =
-  let newUsers   = map (\u -> if userId u == clientId then u{ userState = Ready } else u) users
+  let newUsers   = M.adjust (\u -> u { userState = Ready }) clientId users
       -- We have at least 2 users, and all users are ready
       ready      = length users > 1 && all ((Ready ==) . userState) newUsers
   in return (newUsers, ready)
@@ -154,7 +154,7 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
           PlayerTurnLeft  clientId -> processEvent server g' $ TurnLeft (userIdToPlayerNick clientId)
           PlayerTurnRight clientId -> processEvent server g' $ TurnRight (userIdToPlayerNick clientId)
           PlayerExit      clientId -> do
-            modifyMVar_ serverUsers (return . filter ((clientId /=) . userId))
+            modifyMVar_ serverUsers (return . M.delete clientId)
             processEvent server g' $ PlayerQuit (userIdToPlayerNick clientId)
 
         processPlayerReady clientId = case game of
@@ -193,13 +193,17 @@ handleIncomingMessages server@Server{..} game = do
      Nothing -> False
      Just g'  -> Finished == gameStatus g'
 
-playersFromUsers :: [User] -> M.Map PlayerNick Player
-playersFromUsers = M.fromList . map userToPlayer
+playersFromUsers :: M.Map UserID User -> M.Map PlayerNick Player
+playersFromUsers users =
+  let
+    players = M.map userToPlayer users        -- M.Map UserID Player
+  in
+    M.mapKeys userIdToPlayerNick players
   where
     userToPlayer u =
       let nick   = userIdToPlayerNick . userId $ u
           player = Player nick Alive (10,10) North []
-      in (nick, player)
+      in player
 
 userIdToPlayerNick :: UserID -> PlayerNick
 userIdToPlayerNick = PlayerNick . T.unpack . getUserID
