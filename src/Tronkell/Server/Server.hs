@@ -7,7 +7,7 @@ import Tronkell.Game.Types as Game
 import Tronkell.Types
 import Tronkell.Game.Engine as Engine
 
-import Network.Socket hiding (send, sendTo, recv, recvFrom)
+import Network (PortID(..), accept, listenOn, withSocketsDo)
 
 import Control.Concurrent
 import Control.Concurrent.STM
@@ -23,16 +23,12 @@ import qualified Data.Map as M (fromList, elems, Map)
 import System.IO
 
 startServer :: Game.GameConfig -> IO ()
-startServer gConfig = do
-  sock <- socket AF_INET Stream defaultProtocol
-  setSocketOption sock ReuseAddr 1
-  bind sock (SockAddrInet 4242 iNADDR_ANY)
-  let maxQueuedConnections = 5
-  listen sock maxQueuedConnections
+startServer gConfig = withSocketsDo $ do
+  sock         <- listenOn . PortNumber $ 4242
 
-  playersVar <- newMVar []
-  serverChan <- atomically newTChan
-  clientsChan <- newChan
+  playersVar   <- newMVar []
+  serverChan   <- atomically newTChan
+  clientsChan  <- newChan
   internalChan <- newChan
 
   let server = Server gConfig playersVar sock serverChan clientsChan internalChan
@@ -45,8 +41,7 @@ type ClientId = Int
 
 mainLoop :: Server -> IO ()
 mainLoop server@Server{..} = do
-  (conn, _) <- accept serverSocket
-  clientHdl <- socketToHandle conn ReadWriteMode
+  (clientHdl, _, _) <- accept serverSocket
   hSetBuffering clientHdl NoBuffering
   forkIO $ runClient clientHdl server
   mainLoop server

@@ -4,7 +4,7 @@ import Tronkell.Types
 import Tronkell.Game.Types as Game
 import Control.Concurrent.STM (TChan)
 import Control.Concurrent (MVar, Chan)
-import Network.Socket
+import Network (Socket)
 import qualified Data.Text as T
 
 data Server = Server { serverGameConfig :: Game.GameConfig
