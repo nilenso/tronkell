@@ -1,4 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module TestServer where
 
@@ -8,7 +9,6 @@ import Test.QuickCheck.Monadic
 
 import Data.ByteString.Char8 as C (pack)
 import qualified Data.Map as M
-import Data.Text as T (pack, unpack)
 import System.IO
 import Control.Concurrent
 import Control.Concurrent.STM
@@ -43,13 +43,17 @@ main = hspec $
         server <- run genServer
         run $ runClient clientHandle server
         users <- run $ readMVar (serverUsers server)
-        assert $ length users == 1 && T.pack "username" == (getUserID . userId . snd . head . M.toList $ users)
+        assert $ length users == 1 &&
+                 "username" == (getUserID . userId . head . M.elems $ users)
 
     it "should ask again for user-name if already taken" $
       property $ monadicIO $ do
         clientHandle <- genHandle "Username1\r\nUsername2\r\nquit\r\n"
         server <- run genServer
-        run $ modifyMVar_ (serverUsers server) $ \users -> return $ M.insert (UserID . T.pack $ "Username1") (SServer.mkUser "Username1") users
+        let uId  = UserID "Username1"
+            user = User uId (Just "Username1") Waiting
+        run $ modifyMVar_ (serverUsers server) $ \users -> return $ M.insert uId user users
         run $ runClient clientHandle server
         users <- run $ readMVar (serverUsers server)
-        assert $ length users == 2 && ["Username1", "Username2"] == (fmap (T.unpack . getUserID . userId . snd) . M.toList $ users)
+        assert $ length users == 2 &&
+                 ["Username1", "Username2"] == (getUserID . userId <$> M.elems users)

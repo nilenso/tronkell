@@ -20,6 +20,7 @@ newtype UserID = UserID { getUserID :: T.Text }
                  deriving (Eq, Show, Ord)
 
 data User = User { userId    :: UserID
+                 , userNick  :: Maybe T.Text
                  , userState :: UserStatus
                  } deriving (Show)
 

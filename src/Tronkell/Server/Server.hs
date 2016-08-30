@@ -46,34 +46,29 @@ mainLoop server@Server{..} = do
   forkIO $ runClient clientHdl server
   mainLoop server
 
-nickToUserId :: String -> UserID
-nickToUserId = UserID . T.pack
-
-isNickTaken :: M.Map UserID User -> String -> Bool
-isNickTaken users = flip M.member users . nickToUserId
-
-mkUser :: String -> User
-mkUser nick = User (nickToUserId nick) Waiting
-
 runClient :: Handle -> Server -> IO ()
 runClient clientHdl server@Server{..} = do
   hPutStr clientHdl "Take a nick name : "
   nick <- cleanString <$> hGetLine clientHdl
-  let userId = nickToUserId nick
+  let uId  = nickToUserId nick
+      user = User uId (Just . T.pack $ nick) Waiting
   failedToAdd <- modifyMVar serverUsers $ \users ->
     if isNickTaken users nick
     then return (users, True)
-    else return (M.insert userId (mkUser nick) users, False)
+    else return (M.insert uId user users, False)
 
   if failedToAdd
   then runClient clientHdl server
-  else do atomically $ writeTChan serverChan $ PlayerJoined userId
+  else do atomically $ writeTChan serverChan $ PlayerJoined uId
           hPutStrLn clientHdl $ "Hi.. " ++ nick ++ ".. Type ready when you are ready to play.. quit to quit."
           fix $ \loop -> do ready <- cleanString <$> hGetLine clientHdl
                             case ready of
-                             "ready" -> playClient userId clientHdl server
-                             "quit" -> atomically $ writeTChan serverChan $ PlayerExit userId
+                             "ready" -> playClient uId clientHdl server
+                             "quit" -> atomically $ writeTChan serverChan $ PlayerExit uId
                              _ -> loop
+  where
+    nickToUserId = UserID . T.pack
+    isNickTaken users = flip M.member users . nickToUserId
 
 cleanString :: String -> String
 cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
