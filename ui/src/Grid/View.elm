@@ -11,7 +11,7 @@ view : GM.Grid -> Html GM.Msg
 view grid =
     GM.gridToList grid
     |> List.map renderCell
-    |> C.collage 300 300
+    |> C.collage 600 300
     |> E.toHtml
 
 renderCell : GM.Cell -> C.Form
@@ -35,5 +35,5 @@ colorOfCell : GM.Cell -> Color
 colorOfCell cell =
     case cell.ctype of
         GM.EmptyCell    -> Color.rgb 100 100 100
-        GM.PlayerCell _ -> Color.rgb 200 100 150
+        GM.PlayerCell p -> p.color
         GM.Trail        -> Color.rgb 200 100 100
