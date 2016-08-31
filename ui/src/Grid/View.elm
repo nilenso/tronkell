@@ -7,18 +7,18 @@ import Collage as C
 import Color exposing (Color)
 import Element as E
 
-
 view : GM.Grid -> Html GM.Msg
-view grid = List.map renderCell grid
-            |> C.collage 300 300
-            |> E.toHtml
+view grid =
+    GM.gridToList grid
+    |> List.map renderCell
+    |> C.collage 300 300
+    |> E.toHtml
 
 renderCell : GM.Cell -> C.Form
 renderCell cell =
     cellStructure cell
     |> fillCell cell
     |> C.move (toFloat (cell.x * 30), toFloat (cell.y * 30))
-
 
 cellStructure : GM.Cell -> C.Shape
 cellStructure cell =
@@ -29,7 +29,11 @@ cellStructure cell =
 
 fillCell : GM.Cell -> C.Shape -> C.Form
 fillCell cell shape =
+    C.filled (colorOfCell cell) shape
+
+colorOfCell : GM.Cell -> Color
+colorOfCell cell =
     case cell.ctype of
-        GM.EmptyCell    -> C.filled (Color.rgb 100 100 100) shape
-        GM.PlayerCell _ -> C.filled (Color.rgb 200 100 150) shape
-        GM.Trail        -> C.filled (Color.rgb 200 100 100) shape
+        GM.EmptyCell    -> Color.rgb 100 100 100
+        GM.PlayerCell _ -> Color.rgb 200 100 150
+        GM.Trail        -> Color.rgb 200 100 100

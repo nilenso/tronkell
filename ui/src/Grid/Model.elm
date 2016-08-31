@@ -18,3 +18,6 @@ type alias Cell =
 type alias Grid = List Cell
 
 type Msg = NoOp
+
+gridToList : Grid -> List Cell
+gridToList grid = grid
