@@ -19,3 +19,7 @@
 4. Handles keyboard events of Left key, Right key.
 5. Always keeps current state of game.
 6. Updates state with delta update events from server.
+
+## Todo for tomorrow:
+1. Draw full canvas with emptycells and players initial cell.
+2. Start moving players left and right with buttons.
