@@ -28,7 +28,8 @@ type alias Grid =
      , height      : Float
      }
 
-type Msg = NoOp
+type Msg = MovePlayer PlayerId Position
+         | NoOp
 
 init : Float -> Float -> Grid
 init w h = Grid [] w h
@@ -49,7 +50,27 @@ generateGrid playersData w h =
     in Debug.log "playersCell: " (Grid playersCell w h)
 
 genPlayerCell : (Int, String, List Int, (Int, Int)) -> Cell
-genPlayerCell (id, name, cs, (x', y')) =
-    case cs of
-        r::g::b::_ -> Cell (PlayerCell (Player id name (Color.rgb r g b) [])) (toFloat x') (toFloat y')
-        _          -> Cell EmptyCell (toFloat x') (toFloat y')
+genPlayerCell (id, name, cs, (x, y)) =
+    let (x', y') = (toFloat x, toFloat y)
+    in case cs of
+           r::g::b::_ -> Cell (PlayerCell (Player id name (Color.rgb r g b) [(x', y')])) x' y'
+           _          -> Cell EmptyCell x' y'
+
+
+update : Msg -> Grid -> (Grid, Cmd Msg)
+update msg grid =
+    case msg of
+        MovePlayer pid pos -> ( { grid | playerCells = addPos pid pos grid.playerCells }, Cmd.none)
+        _ -> (grid, Cmd.none)
+
+addPos : PlayerId -> Position -> List Cell -> List Cell
+addPos pid (posx, posy) playerCells =
+    List.map
+        (\pc ->
+             case pc.ctype of
+                 PlayerCell p -> if p.id == pid
+                                 then let p' = { p | trail = List.append [(posx, posy)] p.trail }
+                                      in { pc | ctype = PlayerCell p', x = posx, y = posy }
+                                 else pc
+                 _ -> pc)
+            playerCells
