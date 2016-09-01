@@ -21,6 +21,4 @@
 6. Updates state with delta update events from server.
 
 ## Todo for tomorrow:
-1. Draw full canvas with emptycells and players initial cell.
-2. Start moving players left and right with buttons.
-3. Move to storing only Players information in Grid.
+1. Start moving players left and right with buttons.

@@ -19,8 +19,11 @@ main =
         , subscriptions = subscriptions
         }
 
+gridWidth = 50
+gridHeight = 50
+
 init : (Model, Cmd Msg)
-init = (Model (GM.init 50 50) [], Cmd.none)
+init = (Model (GM.init gridWidth gridHeight) [], Cmd.none)
 
 type alias Model =
     { grid : GM.Grid
@@ -61,4 +64,4 @@ randomGridCmd =
                   (Random.int 1 10)
                   (RString.string 5 RChar.english)
                   (Random.list 3 (Random.int 0 255))
-                  (Random.pair (Random.int 0 4) (Random.int 0 4))))
+                  (Random.pair (Random.int 0 (gridWidth - 1)) (Random.int 0 (gridHeight - 1)))))
