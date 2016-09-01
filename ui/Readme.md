@@ -23,3 +23,4 @@
 ## Todo for tomorrow:
 1. Draw full canvas with emptycells and players initial cell.
 2. Start moving players left and right with buttons.
+3. Move to storing only Players information in Grid.

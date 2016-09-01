@@ -1,37 +1,49 @@
 module Grid.Model exposing (..)
 
 import Color exposing (Color)
+import List.Extra as ListE
 
 type alias PlayerId = Int
 type alias PlayerName = String
+type alias Position = (Int, Int)
+type alias Trail = List Position
+
 type alias Player =
     { id : PlayerId
     , name : PlayerName
     , color : Color
+    , trail : Trail
     }
 
 type CellType = EmptyCell | PlayerCell Player | Trail
 type alias Cell =
          { ctype : CellType
-         , x     : Int
-         , y     : Int
+         , x     : Float
+         , y     : Float
          }
 
-type alias Grid = List (List Cell)
+type alias Grid =
+     { playerCells : List Cell
+     , width       : Float
+     , height      : Float
+     }
 
 type Msg = NoOp
 
-gridToList : Grid -> List Cell
-gridToList grid = List.concatMap identity grid
+init : Float -> Float -> Grid
+init w h = Grid [] w h
 
-generateGrid : List (Int, String, List Int, (Int, Int)) -> Grid
-generateGrid playersData =
+gridToList : Grid -> List Cell
+gridToList grid =
+    List.map (\ (w, h) -> Cell EmptyCell w h) (ListE.lift2 (,) [0 .. grid.height - 1]  [0 .. grid.width - 1])
+
+generateGrid : List (Int, String, List Int, (Int, Int)) -> Float -> Float -> Grid
+generateGrid playersData w h =
     let playersCell = List.map genPlayerCell playersData
-        emptyCells  = List.map (\ (x,y) -> Cell EmptyCell x y) [(0,0), (1,1), (2,2)]
-    in Debug.log "playersCell: " [playersCell, emptyCells]
+    in Debug.log "playersCell: " (Grid playersCell w h)
 
 genPlayerCell : (Int, String, List Int, (Int, Int)) -> Cell
 genPlayerCell (id, name, cs, (x', y')) =
     case cs of
-        r::g::b::_ -> Cell (PlayerCell (Player id name (Color.rgb r g b))) x' y'
-        _          -> Cell EmptyCell x' y'
+        r::g::b::_ -> Cell (PlayerCell (Player id name (Color.rgb r g b) [])) (toFloat x') (toFloat y')
+        _          -> Cell EmptyCell (toFloat x') (toFloat y')

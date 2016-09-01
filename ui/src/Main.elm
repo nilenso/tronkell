@@ -1,6 +1,6 @@
 module Main exposing (main)
 
-import Grid.Model as M
+import Grid.Model as GM
 import Grid.View  as GV
 import Color exposing (Color)
 
@@ -20,24 +20,26 @@ main =
         }
 
 init : (Model, Cmd Msg)
-init = (Model [] [], Cmd.none)
+init = (Model (GM.init 50 50) [], Cmd.none)
 
 type alias Model =
-    { grid : M.Grid
-    , players : List M.Cell
+    { grid : GM.Grid
+    , players : List GM.Cell
     }
 
 type Msg = GeneratePlayers
          | RandomPlayers (List (Int, String, List Int, (Int, Int)))
-         | GridMsg M.Msg
+         | GridMsg GM.Msg
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         GeneratePlayers -> ( model, randomGridCmd )
         GridMsg _       -> ( model, Cmd.none )
-        RandomPlayers playersData -> ( let players = List.map ( M.genPlayerCell) playersData
-                                       in Model (M.generateGrid playersData) players, Cmd.none)
+        RandomPlayers playersData ->
+            let players = List.map GM.genPlayerCell playersData
+            in ( Model (GM.generateGrid playersData model.grid.width model.grid.height) players
+               , Cmd.none)
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none
@@ -48,7 +50,6 @@ view model =
         [ (App.map GridMsg (GV.view model.grid))
         , button [onClick GeneratePlayers] [text "Generate Players"]
         ]
-
 
 randomGridCmd : Cmd Msg
 randomGridCmd =
