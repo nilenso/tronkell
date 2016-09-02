@@ -17,7 +17,7 @@ type Msg = GeneratePlayers -- would go away
          -- From Server:
          -- Game State Related
          | GameReady GameWidth GameHeight (List GM.Player)
-         | GameEnded (Maybe GM.PlayerName)
+         | GameEnded (Maybe GM.PlayerId)
          | ServerMsg String
          -- Game Related
          | GridMsg GM.Msg

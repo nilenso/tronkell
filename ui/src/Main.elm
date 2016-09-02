@@ -25,25 +25,33 @@ gridWidth = 50
 gridHeight = 50
 
 init : (Model, Cmd Msg)
-init = (Model (GM.init gridWidth gridHeight) Nothing, Cmd.none)
+init = (Model (GM.init gridWidth gridHeight) Nothing Nothing, Cmd.none)
 
 type alias Model =
     { grid : GM.Grid
-    , nick : (Maybe GM.PlayerName)
+    , nick : Maybe GM.PlayerName
+    , winnerId : Maybe GM.PlayerId
     }
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         GeneratePlayers -> ( model, randomGridCmd )
-        GridMsg m       -> let (g, _) = GM.update m model.grid
-                           in ({ model | grid = g }, Cmd.none)
         RandomPlayers playersData ->
-            ( Model (GM.generateGrid playersData model.grid.width model.grid.height) Nothing
+            ( Model (GM.generateGrid playersData model.grid.width model.grid.height) Nothing Nothing
             , Cmd.none)
+
         PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
         PlayerReady      -> ( model, readyCmds model.nick )
         PlayerQuit       -> ( model, webSocketSend "quit" )
+        MoveLeft         -> ( model, webSocketSend "L" )
+        MoveRight        -> ( model, webSocketSend "R" )
+
+        GameReady w h ps -> ( { model | grid = (GM.init w h) }, Cmd.none) -- set players
+        GameEnded wId    -> ( { model | winnerId = wId }, Cmd.none )
+        ServerMsg msg    -> ( model, Cmd.none )
+        GridMsg m        -> let (g, _) = GM.update m model.grid
+                            in ({ model | grid = g }, Cmd.none)
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none
@@ -86,7 +94,7 @@ cellsToPlayers cells =
 playerMoveMsg : GM.Position -> GM.Cell -> GM.Msg
 playerMoveMsg pos cell =
     case cell.ctype of
-        GM.PlayerCell p -> GM.MovePlayer p.id pos
+        GM.PlayerCell p -> GM.PlayerMoved p.id pos
         _ -> GM.NoOp
 
 leftMoveMsg : GM.Cell -> GM.Msg
