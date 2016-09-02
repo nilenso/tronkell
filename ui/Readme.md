@@ -20,5 +20,15 @@
 5. Always keeps current state of game.
 6. Updates state with delta update events from server.
 
+## Messages from server:
+```
+data OutMessage = GameReady   Game.GameConfig [Game.Player]
+                | PlayerMoved UserID Coordinate Orientation
+                | PlayerDied  UserID Coordinate
+                | GameEnded   (Maybe UserID)
+                | ServerMsg   String
+                deriving (Show)
+```
+
 ## Todo for tomorrow:
-1. Start moving players left and right with buttons.
+1. Note down all Msg types that server sends and start coding w.r.t that.

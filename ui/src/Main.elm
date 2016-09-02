@@ -5,11 +5,13 @@ import Grid.View  as GV
 import Color exposing (Color)
 
 import Html.App as App
-import Html exposing (Html, div, button, text)
-import Html.Events exposing (onClick)
+import Html exposing (Html, div, button, text, input)
+import Html.Events exposing (onClick, onInput)
+import Html.Attributes exposing (placeholder)
 import Random
 import Random.String as RString
 import Random.Char as RChar
+import Message exposing (..)
 
 main =
     App.program
@@ -23,15 +25,12 @@ gridWidth = 50
 gridHeight = 50
 
 init : (Model, Cmd Msg)
-init = (Model (GM.init gridWidth gridHeight), Cmd.none)
+init = (Model (GM.init gridWidth gridHeight) Nothing, Cmd.none)
 
 type alias Model =
     { grid : GM.Grid
+    , nick : (Maybe GM.PlayerName)
     }
-
-type Msg = GeneratePlayers
-         | RandomPlayers (List (Int, String, List Int, (Int, Int)))
-         | GridMsg GM.Msg
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -40,8 +39,11 @@ update msg model =
         GridMsg m       -> let (g, _) = GM.update m model.grid
                            in ({ model | grid = g }, Cmd.none)
         RandomPlayers playersData ->
-            ( Model (GM.generateGrid playersData model.grid.width model.grid.height)
+            ( Model (GM.generateGrid playersData model.grid.width model.grid.height) Nothing
             , Cmd.none)
+        PlayerNameInput name  -> ( { model | nick = Just name }, Cmd.none )
+        PlayerReadyInput      -> ( model, readyCmds model.nick )
+        PlayerQuitInput       -> ( model, webSocketSend "quit" )
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none
@@ -54,6 +56,12 @@ view model =
                       ]
                      , List.map (\p -> button [onClick (GridMsg (leftMoveMsg p))] [text "<- "]) model.grid.playerCells
                      , List.map (\p -> button [onClick (GridMsg (rightMoveMsg p))] [text  " ->"]) model.grid.playerCells
+                     , [ div []
+                             [ input [ onInput PlayerNameInput
+                                     , placeholder "Take a nick"]
+                                     []
+                             , button [onClick PlayerReadyInput] [text "Ready"]
+                             , button [onClick PlayerQuitInput] [text "Quit"]]]
                      ])
 
 randomGridCmd : Cmd Msg
@@ -86,3 +94,13 @@ leftMoveMsg cell = playerMoveMsg (cell.x - 1, cell.y) cell
 
 rightMoveMsg : GM.Cell -> GM.Msg
 rightMoveMsg cell = playerMoveMsg (cell.x + 1, cell.y) cell
+
+webSocketSend : String -> Cmd Msg
+webSocketSend _ = Cmd.none
+
+readyCmds : Maybe GM.PlayerName -> Cmd Msg
+readyCmds pn =
+    case pn of
+        Just p -> Cmd.batch [ webSocketSend p
+                            , webSocketSend "ready"]
+        Nothing -> Cmd.none
