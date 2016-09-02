@@ -25,7 +25,7 @@ gridWidth = 50
 gridHeight = 50
 
 init : (Model, Cmd Msg)
-init = (Model (GM.init gridWidth gridHeight) Nothing Nothing, Cmd.none)
+init = (Model (GM.init gridWidth gridHeight []) Nothing Nothing, Cmd.none)
 
 type alias Model =
     { grid : GM.Grid
@@ -47,7 +47,7 @@ update msg model =
         MoveLeft         -> ( model, webSocketSend "L" )
         MoveRight        -> ( model, webSocketSend "R" )
 
-        GameReady w h ps -> ( { model | grid = (GM.init w h) }, Cmd.none) -- set players
+        GameReady w h ps -> ( { model | grid = (GM.init w h ps) }, Cmd.none) -- set players
         GameEnded wId    -> ( { model | winnerId = wId }, Cmd.none )
         ServerMsg msg    -> ( model, Cmd.none )
         GridMsg m        -> let (g, _) = GM.update m model.grid

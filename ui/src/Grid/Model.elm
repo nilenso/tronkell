@@ -23,17 +23,17 @@ type alias Cell =
          }
 
 type alias Grid =
-     { playerCells : List Cell
-     , width       : Float
+     { width       : Float
      , height      : Float
+     , playerCells : List Cell
      }
 
 type Msg = PlayerMoved PlayerId Position
          | PlayerDied PlayerId Position
          | NoOp
 
-init : Float -> Float -> Grid
-init w h = Grid [] w h
+init : Float -> Float -> List Cell -> Grid
+init w h playerCells = Grid w h playerCells
 
 gridToList : Grid -> List Cell
 gridToList grid =
@@ -48,7 +48,7 @@ gridToList grid =
 generateGrid : List (Int, String, List Int, (Int, Int)) -> Float -> Float -> Grid
 generateGrid playersData w h =
     let playersCell = List.map genPlayerCell playersData
-    in Debug.log "playersCell: " (Grid playersCell w h)
+    in Debug.log "playersCell: " (Grid w h playersCell)
 
 genPlayerCell : (Int, String, List Int, (Int, Int)) -> Cell
 genPlayerCell (id, name, cs, (x, y)) =
