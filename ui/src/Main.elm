@@ -25,7 +25,7 @@ gridWidth = 50
 gridHeight = 50
 
 init : (Model, Cmd Msg)
-init = (Model (Just (GM.init gridWidth gridHeight [])) Nothing Nothing, Cmd.none)
+init = (Model Nothing Nothing Nothing, Cmd.none)
 
 type alias Model =
     { grid : Maybe GM.Grid
@@ -37,7 +37,7 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         GeneratePlayers -> ( model, randomGridCmd )
-        RandomPlayers playersData -> ( Model Nothing Nothing Nothing, Cmd.none)
+        RandomPlayers playersData -> ( Model (Just (GM.generateGrid playersData gridWidth gridHeight)) Nothing Nothing, Cmd.none)
         PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
         PlayerReady      -> ( model, readyCmds model.nick )
         PlayerQuit       -> ( model, webSocketSend "quit" )
@@ -62,8 +62,8 @@ view model =
     div []
         (List.concat
              -- Grid View
-             [[ Maybe.withDefault (text "Game coming") (Maybe.map (App.map GridMsg << GV.view) model.grid)
-              , button [onClick GeneratePlayers] [text "Generate Players"]
+             [[ Maybe.withDefault (div [] [text "Game coming"]) (Maybe.map (App.map GridMsg << GV.view) model.grid)
+              , button [onClick GeneratePlayers] [text "Generate game"]
               ]
 
              -- Left buttons of all players -- will go away
