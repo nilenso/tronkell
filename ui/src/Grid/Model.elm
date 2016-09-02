@@ -28,7 +28,8 @@ type alias Grid =
      , height      : Float
      }
 
-type Msg = MovePlayer PlayerId Position
+type Msg = PlayerMoved PlayerId Position
+         | PlayerDied PlayerId Position
          | NoOp
 
 init : Float -> Float -> Grid
@@ -60,7 +61,7 @@ genPlayerCell (id, name, cs, (x, y)) =
 update : Msg -> Grid -> (Grid, Cmd Msg)
 update msg grid =
     case msg of
-        MovePlayer pid pos -> ( { grid | playerCells = addPos pid pos grid.playerCells }, Cmd.none)
+        PlayerMoved pid pos -> ( { grid | playerCells = addPos pid pos grid.playerCells }, Cmd.none)
         _ -> (grid, Cmd.none)
 
 addPos : PlayerId -> Position -> List Cell -> List Cell

@@ -27,7 +27,16 @@ data OutMessage = GameReady   Game.GameConfig [Game.Player]
                 | PlayerDied  UserID Coordinate
                 | GameEnded   (Maybe UserID)
                 | ServerMsg   String
-                deriving (Show)
+```
+
+## Messages to server:
+Id would be appended by the socket handle itself at server.
+```
+type Msg = PlayerName GM.PlayerName
+         | PlayerReady
+         | PlayerQuit
+         | MoveLeft
+         | MoveRight
 ```
 
 ## Todo for tomorrow:

@@ -41,9 +41,9 @@ update msg model =
         RandomPlayers playersData ->
             ( Model (GM.generateGrid playersData model.grid.width model.grid.height) Nothing
             , Cmd.none)
-        PlayerNameInput name  -> ( { model | nick = Just name }, Cmd.none )
-        PlayerReadyInput      -> ( model, readyCmds model.nick )
-        PlayerQuitInput       -> ( model, webSocketSend "quit" )
+        PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
+        PlayerReady      -> ( model, readyCmds model.nick )
+        PlayerQuit       -> ( model, webSocketSend "quit" )
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none
@@ -57,11 +57,11 @@ view model =
                      , List.map (\p -> button [onClick (GridMsg (leftMoveMsg p))] [text "<- "]) model.grid.playerCells
                      , List.map (\p -> button [onClick (GridMsg (rightMoveMsg p))] [text  " ->"]) model.grid.playerCells
                      , [ div []
-                             [ input [ onInput PlayerNameInput
+                             [ input [ onInput PlayerName
                                      , placeholder "Take a nick"]
                                      []
-                             , button [onClick PlayerReadyInput] [text "Ready"]
-                             , button [onClick PlayerQuitInput] [text "Quit"]]]
+                             , button [onClick PlayerReady] [text "Ready"]
+                             , button [onClick PlayerQuit] [text "Quit"]]]
                      ])
 
 randomGridCmd : Cmd Msg
