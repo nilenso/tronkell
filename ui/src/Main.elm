@@ -25,10 +25,10 @@ gridWidth = 50
 gridHeight = 50
 
 init : (Model, Cmd Msg)
-init = (Model (GM.init gridWidth gridHeight []) Nothing Nothing, Cmd.none)
+init = (Model (Just (GM.init gridWidth gridHeight [])) Nothing Nothing, Cmd.none)
 
 type alias Model =
-    { grid : GM.Grid
+    { grid : Maybe GM.Grid
     , nick : Maybe GM.PlayerName
     , winnerId : Maybe GM.PlayerId
     }
@@ -37,21 +37,22 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         GeneratePlayers -> ( model, randomGridCmd )
-        RandomPlayers playersData ->
-            ( Model (GM.generateGrid playersData model.grid.width model.grid.height) Nothing Nothing
-            , Cmd.none)
-
+        RandomPlayers playersData -> ( Model Nothing Nothing Nothing, Cmd.none)
         PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
         PlayerReady      -> ( model, readyCmds model.nick )
         PlayerQuit       -> ( model, webSocketSend "quit" )
         MoveLeft         -> ( model, webSocketSend "L" )
         MoveRight        -> ( model, webSocketSend "R" )
 
-        GameReady w h ps -> ( { model | grid = (GM.init w h ps) }, Cmd.none) -- set players
+        GameReady w h ps -> ( { model | grid = Just (GM.init w h ps) }, Cmd.none)
         GameEnded wId    -> ( { model | winnerId = wId }, Cmd.none )
         ServerMsg msg    -> ( model, Cmd.none )
-        GridMsg m        -> let (g, _) = GM.update m model.grid
-                            in ({ model | grid = g }, Cmd.none)
+
+        GridMsg m        ->
+            model.grid
+            |> Maybe.map (\gg -> let (g', _) = GM.update m gg -- todo: take care of Msg returned by update
+                                 in ({ model | grid = Just g' }, Cmd.none))
+            |> Maybe.withDefault ( model, Cmd.none ) -- or error msg command.
 
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.none
@@ -59,18 +60,32 @@ subscriptions model = Sub.none
 view : Model -> Html Msg
 view model =
     div []
-        (List.concat [ [ (App.map GridMsg (GV.view model.grid))
-                      , button [onClick GeneratePlayers] [text "Generate Players"]
-                      ]
-                     , List.map (\p -> button [onClick (GridMsg (leftMoveMsg p))] [text "<- "]) model.grid.playerCells
-                     , List.map (\p -> button [onClick (GridMsg (rightMoveMsg p))] [text  " ->"]) model.grid.playerCells
-                     , [ div []
-                             [ input [ onInput PlayerName
-                                     , placeholder "Take a nick"]
-                                     []
-                             , button [onClick PlayerReady] [text "Ready"]
-                             , button [onClick PlayerQuit] [text "Quit"]]]
-                     ])
+        (List.concat
+             -- Grid View
+             [[ Maybe.withDefault (text "Game coming") (Maybe.map (App.map GridMsg << GV.view) model.grid)
+              , button [onClick GeneratePlayers] [text "Generate Players"]
+              ]
+
+             -- Left buttons of all players -- will go away
+             , model.grid
+             |> Maybe.map (List.map (\p -> button [onClick (GridMsg (leftMoveMsg p))] [text "<- "])
+                               << .playerCells)
+             |> Maybe.withDefault []
+
+             -- Right buttons of all players -- will go away
+             , model.grid
+             |> Maybe.map (List.map (\p -> button [onClick (GridMsg (rightMoveMsg p))] [text  " ->"])
+                               << .playerCells)
+             |> Maybe.withDefault []
+
+             -- Main Player buttons
+             , [ div []
+                     [ input [ onInput PlayerName
+                             , placeholder "Take a nick"]
+                           []
+                     , button [onClick PlayerReady] [text "Ready"]
+                     , button [onClick PlayerQuit] [text "Quit"]]]
+             ])
 
 randomGridCmd : Cmd Msg
 randomGridCmd =

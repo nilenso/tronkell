@@ -40,7 +40,7 @@ cellStructure cell =
     case cell.ctype of
         GM.EmptyCell -> C.square (cellWidth - 1)
         GM.PlayerCell p -> C.oval (cellWidth - 1) (cellHeight - 1)
-        GM.Trail -> C.oval (cellHeight - 1 ) (cellWidth - 1)
+        GM.Trail _ -> C.oval (cellHeight - 1 ) (cellWidth - 1)
 
 fillCell : GM.Cell -> C.Shape -> C.Form
 fillCell cell shape =
@@ -51,4 +51,4 @@ colorOfCell cell =
     case cell.ctype of
         GM.EmptyCell    -> Color.rgb 100 100 100
         GM.PlayerCell p -> p.color
-        GM.Trail        -> Color.rgb 200 100 100
+        GM.Trail c      -> c
