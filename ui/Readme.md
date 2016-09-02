@@ -40,4 +40,5 @@ type Msg = PlayerName GM.PlayerName
 ```
 
 ## Todo for tomorrow:
-1. Note down all Msg types that server sends and start coding w.r.t that.
+1. Refactor code in multiple files.
+2. Parse Server json messages.
