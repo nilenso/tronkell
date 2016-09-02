@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Grid.Model as GM
 import Grid.View  as GV
-import Color exposing (Color)
+import Message exposing (..)
 
 import Html.App as App
 import Html exposing (Html, div, button, text, input)
@@ -11,7 +11,8 @@ import Html.Attributes exposing (placeholder)
 import Random
 import Random.String as RString
 import Random.Char as RChar
-import Message exposing (..)
+import Color exposing (Color)
+import Keyboard exposing (KeyCode)
 
 main =
     App.program
@@ -38,6 +39,7 @@ update msg model =
     case msg of
         GeneratePlayers -> ( model, randomGridCmd )
         RandomPlayers playersData -> ( Model (Just (GM.generateGrid playersData gridWidth gridHeight)) Nothing Nothing, Cmd.none)
+
         PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
         PlayerReady      -> ( model, readyCmds model.nick )
         PlayerQuit       -> ( model, webSocketSend "quit" )
@@ -54,8 +56,17 @@ update msg model =
                                  in ({ model | grid = Just g' }, Cmd.none))
             |> Maybe.withDefault ( model, Cmd.none ) -- or error msg command.
 
+        NoOp -> ( model, Cmd.none )
+
 subscriptions : Model -> Sub Msg
-subscriptions model = Sub.none
+subscriptions model = Keyboard.ups keyToMsg
+
+keyToMsg : KeyCode -> Msg
+keyToMsg keycode =
+    case keycode of
+        37 -> MoveLeft
+        39 -> MoveRight
+        _  -> NoOp
 
 view : Model -> Html Msg
 view model =
@@ -89,15 +100,12 @@ view model =
 
 randomGridCmd : Cmd Msg
 randomGridCmd =
-    Random.generate
-        RandomPlayers
-        (Random.list 3
-             (Random.map4
-                  (,,,)
-                  (Random.int 1 10)
-                  (RString.string 5 RChar.english)
-                  (Random.list 3 (Random.int 0 255))
-                  (Random.pair (Random.int 0 (gridWidth - 1)) (Random.int 0 (gridHeight - 1)))))
+    Random.generate RandomPlayers
+        (Random.list 3 (Random.map4 (,,,)
+                            (Random.int 1 10)
+                            (RString.string 5 RChar.english)
+                            (Random.list 3 (Random.int 0 255))
+                            (Random.pair (Random.int 0 (gridWidth - 1)) (Random.int 0 (gridHeight - 1)))))
 
 cellsToPlayers : List GM.Cell -> List GM.Player
 cellsToPlayers cells =
@@ -119,7 +127,7 @@ rightMoveMsg : GM.Cell -> GM.Msg
 rightMoveMsg cell = playerMoveMsg (cell.x + 1, cell.y) cell
 
 webSocketSend : String -> Cmd Msg
-webSocketSend _ = Cmd.none
+webSocketSend s = Debug.log s Cmd.none
 
 readyCmds : Maybe GM.PlayerName -> Cmd Msg
 readyCmds pn =

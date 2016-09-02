@@ -23,3 +23,4 @@ type Msg = GeneratePlayers -- would go away
          | ServerMsg String
          -- Game Related
          | GridMsg GM.Msg
+         | NoOp
