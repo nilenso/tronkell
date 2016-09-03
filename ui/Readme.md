@@ -36,7 +36,7 @@ Json Msg structure :
     "height"  : Int,
     "players" : [{ "id"   : Int,
                    "name" : String,
-                   "coordinates" : {"x" : Int, "y" : Int"},
+                   "coordinate" : {"x" : Int, "y" : Int"},
                    "orientation" : "North"/"South"/"East"/"West"}]}
 
 2. {"type"   : "PlayerMoved",
