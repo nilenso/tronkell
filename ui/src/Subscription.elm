@@ -5,6 +5,7 @@ import Message exposing (..)
 
 import Grid.Player as GP
 import Grid.Model as GM
+import Grid.Message as GMsg
 
 import Keyboard exposing (KeyCode)
 import WebSocket
@@ -28,10 +29,16 @@ decodeMsg : String -> Msg
 decodeMsg json =
     let decodeMsg msgType =
             case msgType of
-                "GameReady" ->
-                    Decode.object3 GameReady ("width" := Decode.float) ("height" := Decode.float) ("players" := Decode.list decodePlayer)
-                "GameEnded" -> Decode.object1 GameEnded (nullOr ("winner" := Decode.int))
-                _           -> Decode.succeed NoOp
+                "GameReady"  ->
+                    Decode.object3 GameReady
+                        ("width" := Decode.float) ("height" := Decode.float) ("players" := Decode.list decodePlayer)
+                "GameEnded"   -> Decode.object1 GameEnded (nullOr ("winner" := Decode.int))
+                "PlayerDied"  -> Decode.object1 (\id -> GridMsg (GMsg.PlayerDied id)) ("id" := Decode.int)
+                "PlayerMoved" ->
+                    Decode.object3 (\id coordinate orientation ->
+                                        GridMsg (GMsg.PlayerMoved id coordinate orientation))
+                        ("id" := Decode.int) ("coordinate" := decodePosition) ("orientation" := decodeOrientation)
+                _             -> Decode.succeed NoOp
         decoder = Decode.andThen ("type" := Decode.string ) decodeMsg
         res     = Decode.decodeString decoder json
     in case res of

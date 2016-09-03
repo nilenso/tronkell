@@ -40,10 +40,12 @@ Json Msg structure :
                    "orientation" : "North"/"South"/"East"/"West"}]}
 
 2. {"type"   : "PlayerMoved",
-    "player" : -- see players field in msg type GameReady --
+    "player" : { "id"          : Int,
+                 "coordinate"  : {"x" : Int, "y" : Int"},
+                 "orientation" : "North"/"South"/"East"/"West"}
    }
 3.	{"type"   : "PlayerDied",
-    "player" : -- see players field in msg type GameReady --
+    "player" : { "id" : Int }
    }
 4. {"type"     : "GameEnded",
     "winnerId" : null / Int
