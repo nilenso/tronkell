@@ -21,14 +21,37 @@
 6. Updates state with delta update events from server.
 
 ## Messages from server:
-```
+```haskell
 data OutMessage = GameReady   Game.GameConfig [Game.Player]
                 | PlayerMoved UserID Coordinate Orientation
                 | PlayerDied  UserID Coordinate
                 | GameEnded   (Maybe UserID)
                 | ServerMsg   String
 ```
+Json Msg structure :
 
+```json
+1. {"type"    : "GameReady",
+    "width"   : Int,
+    "height"  : Int,
+    "players" : [{ "id"   : Int,
+                   "name" : String,
+                   "coordinates" : {"x" : Int, "y" : Int"},
+                   "orientation" : "North"/"South"/"East"/"West"}]}
+
+2. {"type"   : "PlayerMoved",
+    "player" : -- see players field in msg type GameReady --
+   }
+3.	{"type"   : "PlayerDied",
+    "player" : -- see players field in msg type GameReady --
+   }
+4. {"type"     : "GameEnded",
+    "winnerId" : null / Int
+   }
+5. {"type"    : "ServeMsg",
+    "message" : String
+   }
+```
 ## Messages to server:
 Id would be appended by the socket handle itself at server.
 ```
@@ -37,6 +60,10 @@ type Msg = PlayerName GM.PlayerName
          | PlayerQuit
          | MoveLeft
          | MoveRight
+```
+All messages to the server are in string form.
+```
+"<username>", "ready", "quit", "L", "R"
 ```
 
 ## Todo for tomorrow:
