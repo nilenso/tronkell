@@ -40,5 +40,4 @@ type Msg = PlayerName GM.PlayerName
 ```
 
 ## Todo for tomorrow:
-1. Refactor code in multiple files.
-2. Parse Server json messages.
+1. Parse Server json messages.
