@@ -1,6 +1,7 @@
 module Grid.View exposing (..)
 
-import Grid.Model as GM
+import Grid.Model exposing (..)
+import Grid.Message exposing (..)
 
 import Html exposing (div, Html)
 import Collage as C
@@ -18,14 +19,14 @@ cellPadding = 0
 
 type alias Boundary = (Float, Float)
 
-view : GM.Grid -> Html GM.Msg
+view : Grid -> Html Msg
 view grid =
-    GM.gridToList grid
+    gridToList grid
     |> List.map (renderCell (grid.width, grid.height))
     |> C.collage (round (grid.width * cellWidth)) (round (grid.height * cellHeight))
     |> E.toHtml
 
-renderCell : Boundary -> GM.Cell -> C.Form
+renderCell : Boundary -> Cell -> C.Form
 renderCell b cell =
     let (cx, cy) = bringToCorner b (cell.x, cell.y)
     in cellStructure cell
@@ -35,20 +36,20 @@ renderCell b cell =
 bringToCorner : Boundary -> (Float, Float) -> (Float, Float)
 bringToCorner (w, h) (x, y) = (x - w / 2 + 0.5, y - h / 2 + 0.5)
 
-cellStructure : GM.Cell -> C.Shape
+cellStructure : Cell -> C.Shape
 cellStructure cell =
     case cell.ctype of
-        GM.EmptyCell -> C.square (cellWidth - 1)
-        GM.PlayerCell p -> C.oval (cellWidth - 1) (cellHeight - 1)
-        GM.Trail _ -> C.oval (cellHeight - 1 ) (cellWidth - 1)
+        EmptyCell -> C.square (cellWidth - 1)
+        PlayerCell p -> C.oval (cellWidth - 1) (cellHeight - 1)
+        Trail _ -> C.oval (cellHeight - 1 ) (cellWidth - 1)
 
-fillCell : GM.Cell -> C.Shape -> C.Form
+fillCell : Cell -> C.Shape -> C.Form
 fillCell cell shape =
     C.filled (colorOfCell cell) shape
 
-colorOfCell : GM.Cell -> Color
+colorOfCell : Cell -> Color
 colorOfCell cell =
     case cell.ctype of
-        GM.EmptyCell    -> Color.rgb 100 100 100
-        GM.PlayerCell p -> p.color
-        GM.Trail c      -> c
+        EmptyCell    -> Color.rgb 100 100 100
+        PlayerCell p -> p.color
+        Trail c      -> c

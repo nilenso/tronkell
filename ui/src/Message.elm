@@ -1,6 +1,8 @@
 module Message exposing (..)
 
 import Grid.Model as GM
+import Grid.Message as GMsg
+import Grid.Player as GP
 
 type alias GameWidth = Float
 type alias GameHeight = Float
@@ -11,7 +13,7 @@ type Msg = GeneratePlayers -- would go away
          | RandomPlayers (List (Int, String, List Int, (Int, Int))) -- would go away
          -- From UI:
          -- Player Init
-         | PlayerName GM.PlayerName
+         | PlayerName GP.PlayerName
          | PlayerReady
          | PlayerQuit
          | MoveLeft
@@ -19,8 +21,8 @@ type Msg = GeneratePlayers -- would go away
          -- From Server:
          -- Game State Related
          | GameReady GameWidth GameHeight PlayerCells
-         | GameEnded (Maybe GM.PlayerId)
+         | GameEnded (Maybe GP.PlayerId)
          | ServerMsg String
          -- Game Related
-         | GridMsg GM.Msg
+         | GridMsg GMsg.Msg
          | NoOp
