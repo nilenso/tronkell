@@ -69,5 +69,4 @@ All messages to the server are in string form.
 ```
 
 ## Todo for tomorrow:
-1. Parse Server json messages.
-2. Handle all server msgs.
+1. Create buttons to simulate Server Msgs.

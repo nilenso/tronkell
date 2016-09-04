@@ -2,10 +2,12 @@ module Update exposing (update)
 
 import Message exposing (..)
 import Model exposing (Model)
+import ServerMsg exposing (sendServerMsg)
 
 import Grid.Model as GM
 import Grid.Player as GP
 import Grid.Update as GU
+import Grid.Message as GMsg
 
 import Random
 import Random.String as RString
@@ -16,6 +18,7 @@ update msg model =
     case msg of
         GeneratePlayers -> ( model, randomGridCmd )
         RandomPlayers playersData -> ( Model (Just (GM.generateGrid playersData gridWidth gridHeight)) Nothing Nothing, Cmd.none)
+        MovePlayer pid pos orien -> ( model, sendServerMsg (MovePlayer pid pos orien))
 
         PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
         PlayerReady      -> ( model, readyCmds model.nick )

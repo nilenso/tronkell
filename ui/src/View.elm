@@ -25,13 +25,13 @@ view model =
 
              -- Left buttons of all players -- will go away
              , model.grid
-             |> Maybe.map (List.map (\p -> button [onClick (GridMsg (leftMoveMsg p))] [text "<- "])
+             |> Maybe.map (List.map (\p -> button [onClick (leftMoveMsg p)] [text "<- "])
                                << .playerCells)
              |> Maybe.withDefault []
 
              -- Right buttons of all players -- will go away
              , model.grid
-             |> Maybe.map (List.map (\p -> button [onClick (GridMsg (rightMoveMsg p))] [text  " ->"])
+             |> Maybe.map (List.map (\p -> button [onClick (rightMoveMsg p)] [text  " ->"])
                                << .playerCells)
              |> Maybe.withDefault []
 
@@ -44,14 +44,14 @@ view model =
                      , button [onClick PlayerQuit] [text "Quit"]]]
              ])
 
-playerMoveMsg : GP.Position -> GM.Cell -> GMsg.Msg
-playerMoveMsg pos cell =
+leftMoveMsg : GM.Cell -> Msg
+leftMoveMsg cell =
     case cell.ctype of
-        GM.PlayerCell p -> GMsg.PlayerMoved p.id pos p.orientation
-        _ -> GMsg.NoOp
+        GM.PlayerCell p -> MovePlayer p.id (cell.x - 1, cell.y) p.orientation
+        _ -> NoOp
 
-leftMoveMsg : GM.Cell -> GMsg.Msg
-leftMoveMsg cell = playerMoveMsg (cell.x - 1, cell.y) cell
-
-rightMoveMsg : GM.Cell -> GMsg.Msg
-rightMoveMsg cell = playerMoveMsg (cell.x + 1, cell.y) cell
+rightMoveMsg : GM.Cell -> Msg
+rightMoveMsg cell =
+    case cell.ctype of
+        GM.PlayerCell p -> MovePlayer p.id (cell.x + 1, cell.y) p.orientation
+        _ -> NoOp
