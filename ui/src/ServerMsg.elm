@@ -12,8 +12,9 @@ import Json.Encode as Encode
 import Color exposing (Color)
 
 wsserver = "ws://echo.websocket.org"
+playerColors = List.append [Color.yellow, Color.blue, Color.green] (List.repeat 100 Color.black)
 
-listenServerMsg = WebSocket.listen wsserver (decodeMsg [Color.yellow, Color.blue, Color.green])
+listenServerMsg = WebSocket.listen wsserver (decodeMsg playerColors)
 
 sendServerMsg : Msg -> Cmd Msg
 sendServerMsg msg = WebSocket.send wsserver (encodeMsg msg)
@@ -23,8 +24,8 @@ decodeMsg colors json =
     let decodeMsg msgType =
             case msgType of
                 "GameReady"  ->
-                    Decode.object3 GameReady
-                        ("width" := Decode.float) ("height" := Decode.float) ("players" := decode3Players (List.map decodePlayer colors))
+                    Decode.object3 (\w h ps -> GameReady w h (List.map2 changeColorOfPlayerCell ps colors))
+                        ("width" := Decode.float) ("height" := Decode.float) ("players" := Decode.list (decodePlayer Color.red))
                 "GameEnded"   -> Decode.object1 GameEnded (nullOr ("winner" := Decode.int))
                 "PlayerDied"  -> Decode.object1 (\id -> GridMsg (GMsg.PlayerDied id)) ("id" := Decode.int)
                 "PlayerMoved" ->
@@ -52,13 +53,6 @@ decodePlayer color =
          ("name"        := Decode.string)
          ("coordinate"  := decodePosition)
          ("orientation" := decodeOrientation))
-
-decode3Players : List (Decoder GM.Cell) -> Decoder (List GM.Cell)
-decode3Players decoders =
-    case decoders of
-        d1::d2::d3::_ -> Decode.tuple3 (\a b c -> a :: b :: c :: []) d1 d2 d3
-        _ -> Decode.fail "Expecting atleast decoding 3 players"
-
 
 decodePosition : Decoder GP.Position
 decodePosition = Decode.object2 (\ x y -> (x,y)) ("x" := Decode.float) ("y" := Decode.float)
@@ -137,3 +131,9 @@ encodePosition (x, y) =
     , ("y", Encode.float y)
     ]
     |> Encode.object
+
+changeColorOfPlayerCell : GM.Cell -> Color -> GM.Cell
+changeColorOfPlayerCell cell c =
+    case cell.ctype of
+        GM.PlayerCell p -> { cell | ctype = GM.PlayerCell { p | color = c }}
+        _ -> cell
