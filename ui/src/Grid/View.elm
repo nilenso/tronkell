@@ -14,9 +14,6 @@ cellWidth = 10
 cellHeight : Float
 cellHeight = 10
 
-cellPadding : Float
-cellPadding = 0
-
 type alias Boundary = (Float, Float)
 
 view : Grid -> Html Msg
@@ -50,6 +47,8 @@ fillCell cell shape =
 colorOfCell : Cell -> Color
 colorOfCell cell =
     case cell.ctype of
-        EmptyCell    -> Color.rgb 100 100 100
-        PlayerCell p -> p.color
+        EmptyCell    -> Color.grey
+        PlayerCell p -> if p.alive
+                        then p.color
+                        else Color.red
         Trail c      -> c

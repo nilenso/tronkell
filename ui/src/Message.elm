@@ -14,6 +14,7 @@ type Msg =
      GeneratePlayers
    | RandomPlayers (List (Int, String, List Int, (Int, Int)))
    | MovePlayer GP.PlayerId GP.Position GP.Orientation
+   | KillPlayer GP.PlayerId
    -- From UI:
    -- Player Init
    | PlayerName GP.PlayerName

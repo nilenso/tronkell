@@ -13,18 +13,18 @@ import Color exposing (Color)
 
 wsserver = "ws://echo.websocket.org"
 
-listenServerMsg = WebSocket.listen wsserver decodeMsg
+listenServerMsg = WebSocket.listen wsserver (decodeMsg [Color.yellow, Color.blue, Color.green])
 
 sendServerMsg : Msg -> Cmd Msg
 sendServerMsg msg = WebSocket.send wsserver (encodeMsg msg)
 
-decodeMsg : String -> Msg
-decodeMsg json =
+decodeMsg : List Color -> String -> Msg
+decodeMsg colors json =
     let decodeMsg msgType =
             case msgType of
                 "GameReady"  ->
                     Decode.object3 GameReady
-                        ("width" := Decode.float) ("height" := Decode.float) ("players" := Decode.list decodePlayer)
+                        ("width" := Decode.float) ("height" := Decode.float) ("players" := decode3Players (List.map decodePlayer colors))
                 "GameEnded"   -> Decode.object1 GameEnded (nullOr ("winner" := Decode.int))
                 "PlayerDied"  -> Decode.object1 (\id -> GridMsg (GMsg.PlayerDied id)) ("id" := Decode.int)
                 "PlayerMoved" ->
@@ -44,14 +44,21 @@ nullOr decoder =
     Decode.oneOf [ Decode.null Nothing
                  , Decode.map Just decoder]
 
-decodePlayer : Decoder GM.Cell
-decodePlayer =
+decodePlayer : Color -> Decoder GM.Cell
+decodePlayer color =
     (Decode.object4
-         (\ id name (x,y) o -> GM.Cell (GM.PlayerCell (GP.Player id name (Color.rgb 100 100 100) o True [])) x y)
+         (\ id name (x,y) o -> GM.Cell (GM.PlayerCell (GP.Player id name color o True [])) x y)
          ("id"          := Decode.int)
          ("name"        := Decode.string)
          ("coordinate"  := decodePosition)
          ("orientation" := decodeOrientation))
+
+decode3Players : List (Decoder GM.Cell) -> Decoder (List GM.Cell)
+decode3Players decoders =
+    case decoders of
+        d1::d2::d3::_ -> Decode.tuple3 (\a b c -> a :: b :: c :: []) d1 d2 d3
+        _ -> Decode.fail "Expecting atleast decoding 3 players"
+
 
 decodePosition : Decoder GP.Position
 decodePosition = Decode.object2 (\ x y -> (x,y)) ("x" := Decode.float) ("y" := Decode.float)
