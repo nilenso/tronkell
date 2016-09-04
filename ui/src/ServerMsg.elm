@@ -25,7 +25,7 @@ decodeMsg colors json =
             case msgType of
                 "GameReady"  ->
                     Decode.object3 (\w h ps -> GameReady w h (List.map2 changeColorOfPlayerCell ps colors))
-                        ("width" := Decode.float) ("height" := Decode.float) ("players" := Decode.list (decodePlayer Color.red))
+                        ("width" := Decode.float) ("height" := Decode.float) ("players" := decodePlayers colors)
                 "GameEnded"   -> Decode.object1 GameEnded (nullOr ("winner" := Decode.int))
                 "PlayerDied"  -> Decode.object1 (\id -> GridMsg (GMsg.PlayerDied id)) ("id" := Decode.int)
                 "PlayerMoved" ->
@@ -53,6 +53,19 @@ decodePlayer color =
          ("name"        := Decode.string)
          ("coordinate"  := decodePosition)
          ("orientation" := decodeOrientation))
+
+decodePlayers : List Color -> Decoder (List GM.Cell)
+decodePlayers colors =
+    decodeList (List.map decodePlayer colors)
+
+decodeList : List (Decoder a) -> Decoder (List a)
+decodeList decoders =
+    Decode.customDecoder
+        (Decode.list Decode.value)
+        (\jsonList ->
+             List.foldr (Result.map2 (::)) (Ok [])
+                 (List.map2 (\decoder json -> Decode.decodeValue decoder json)
+                      decoders jsonList))
 
 decodePosition : Decoder GP.Position
 decodePosition = Decode.object2 (\ x y -> (x,y)) ("x" := Decode.float) ("y" := Decode.float)
