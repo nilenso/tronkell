@@ -11,7 +11,7 @@ import Random
 import Random.String as RString
 import Random.Char as RChar
 
-update : Message.Msg -> Model -> (Model, Cmd Message.Msg)
+update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         GeneratePlayers -> ( model, randomGridCmd )
@@ -29,9 +29,10 @@ update msg model =
 
         GridMsg m        ->
             model.grid
-            |> Maybe.map (\gg -> let (g', _) = GU.update m gg -- todo: take care of Msg returned by update
-                                 in ({ model | grid = Just g' }, Cmd.none))
-            |> Maybe.withDefault ( model, Cmd.none ) -- or error msg command.
+            |> Maybe.map (\gg -> let (g', m') = GU.update m gg
+                                 in ( { model | grid = Just g' },
+                                      Cmd.map GridMsg m'))
+            |> Maybe.withDefault ( model, Cmd.none )
 
         NoOp -> ( model, Cmd.none )
 

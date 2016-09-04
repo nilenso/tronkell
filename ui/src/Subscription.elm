@@ -38,6 +38,7 @@ decodeMsg json =
                     Decode.object3 (\id coordinate orientation ->
                                         GridMsg (GMsg.PlayerMoved id coordinate orientation))
                         ("id" := Decode.int) ("coordinate" := decodePosition) ("orientation" := decodeOrientation)
+                "ServerMsg"   -> Decode.object1 ServerMsg ("message" := Decode.string)
                 _             -> Decode.succeed NoOp
         decoder = Decode.andThen ("type" := Decode.string ) decodeMsg
         res     = Decode.decodeString decoder json
@@ -53,7 +54,7 @@ nullOr decoder =
 decodePlayer : Decoder GM.Cell
 decodePlayer =
     (Decode.object4
-         (\ id name (x,y) o -> GM.Cell (GM.PlayerCell (GP.Player id name (Color.rgb 100 100 100) o [])) x y)
+         (\ id name (x,y) o -> GM.Cell (GM.PlayerCell (GP.Player id name (Color.rgb 100 100 100) o True [])) x y)
          ("id"          := Decode.int)
          ("name"        := Decode.string)
          ("coordinate"  := decodePosition)
@@ -72,6 +73,5 @@ decodeOrientation =
                                     "South" -> GP.South
                                     "West"  -> GP.West
                                     _       -> GP.North))
-
 
 wsserver = "ws://echo.websocket.org"

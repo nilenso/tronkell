@@ -13,5 +13,6 @@ type alias Player =
     , name : PlayerName
     , color : Color
     , orientation : Orientation
+    , alive : Bool
     , trail : Trail
     }

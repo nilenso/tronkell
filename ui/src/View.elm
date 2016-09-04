@@ -47,7 +47,7 @@ view model =
 playerMoveMsg : GP.Position -> GM.Cell -> GMsg.Msg
 playerMoveMsg pos cell =
     case cell.ctype of
-        GM.PlayerCell p -> GMsg.PlayerMoved p.id pos
+        GM.PlayerCell p -> GMsg.PlayerMoved p.id pos p.orientation
         _ -> GMsg.NoOp
 
 leftMoveMsg : GM.Cell -> GMsg.Msg

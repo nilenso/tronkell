@@ -41,5 +41,5 @@ genPlayerCell : (Int, String, List Int, (Int, Int)) -> Cell
 genPlayerCell (id, name, cs, (x, y)) =
     let (x', y') = (toFloat x, toFloat y)
     in case cs of
-           r::g::b::_ -> Cell (PlayerCell (Player id name (Color.rgb r g b) North [(x', y')])) x' y'
+           r::g::b::_ -> Cell (PlayerCell (Player id name (Color.rgb r g b) North True [(x', y')])) x' y'
            _          -> Cell EmptyCell x' y'
