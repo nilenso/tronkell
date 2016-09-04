@@ -69,13 +69,64 @@ decodeOrientation =
 
 encodeMsg : Msg -> String
 encodeMsg msg =
-    case Debug.log "Message: " msg of
-        MovePlayer id (x, y) orien -> [ ("id", Encode.int id)
-                                      , ("coordinate", Encode.object [ ("x", Encode.float x)
-                                                                     , ("y", Encode.float y)])
-                                      , ("orientation", Encode.string (toString orien))
-                                      , ("type", Encode.string "PlayerMoved") -- simulates message from server.
-                                      ]
-                                   |> Encode.object
-                                   |> Encode.encode 0
-        _ -> ""
+    let msgObject =
+            case Debug.log "Message: " msg of
+                GridMsg (GMsg.PlayerMoved id (x, y) orien) ->
+                    [ ("id", Encode.int id)
+                    , ("coordinate", Encode.object [ ("x", Encode.float x)
+                                                   , ("y", Encode.float y)])
+                    , ("orientation", Encode.string (toString orien))
+                    , ("type", Encode.string "PlayerMoved") -- simulates message from server.
+                    ]
+                  |> Just
+
+                GridMsg (GMsg.PlayerDied id) ->
+                    [ ("id", Encode.int id)
+                    , ("type", Encode.string "PlayerDied")
+                    ]
+                  |> Just
+
+                GameReady w h ps ->
+                    [ ("width", Encode.float w)
+                    , ("height", Encode.float h)
+                    , ("players", Encode.list (List.map encodePlayer ps))
+                    , ("type", Encode.string "GameReady")
+                    ]
+                  |> Just
+
+                GameEnded mPid ->
+                    [ ("winner", case mPid of
+                                     Nothing -> Encode.null
+                                     Just pid -> Encode.int pid)
+                    , ("type", Encode.string "GameEnded")
+                    ]
+                  |> Just
+                ServerMsg msg ->
+                    [ ("message", Encode.string msg)
+                    , ("type", Encode.string "ServerMsg")
+                    ]
+                  |> Just
+                _ -> Nothing
+    in case msgObject of
+           Just obj -> obj |> Encode.object |> Encode.encode 0
+           Nothing -> ""
+
+encodePlayer : GM.Cell -> Encode.Value
+encodePlayer pc =
+    case pc.ctype of
+        GM.PlayerCell p ->
+            [ ("id", Encode.int p.id)
+            , ("name", Encode.string p.name)
+            , ("coordinate", encodePosition (pc.x, pc.y))
+            , ("orientation", Encode.string (toString p.orientation))
+            ]
+            |> Encode.object
+
+        _            -> Encode.null
+
+encodePosition : GP.Position -> Encode.Value
+encodePosition (x, y) =
+    [ ("x", Encode.float x)
+    , ("y", Encode.float y)
+    ]
+    |> Encode.object

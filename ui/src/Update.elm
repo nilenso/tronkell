@@ -18,7 +18,7 @@ update msg model =
     case msg of
         GeneratePlayers -> ( model, randomGridCmd )
         RandomPlayers playersData -> ( Model (Just (GM.generateGrid playersData gridWidth gridHeight)) Nothing Nothing, Cmd.none)
-        MovePlayer pid pos orien -> ( model, sendServerMsg (MovePlayer pid pos orien))
+        MovePlayer pid pos orien -> ( model, sendServerMsg (GridMsg (GMsg.PlayerMoved pid pos orien)))
 
         PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
         PlayerReady      -> ( model, readyCmds model.nick )
