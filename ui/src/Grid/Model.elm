@@ -6,22 +6,24 @@ import List.Extra as ListE
 import Grid.Player exposing (..)
 import Grid.Message exposing (..)
 
-type CellType = EmptyCellType | PlayerCellType Player | TrailCellType Color
-type alias Cell =
-         { ctype : CellType
-         , pos   : Position
-         }
+-- Grid is main Model
+type alias Grid =
+     { width       : Float
+     , height      : Float
+     , playerCells : List PlayerCell
+     }
 
 type alias PlayerCell =
     { player : Player
     , pos    : Position
     }
 
-type alias Grid =
-     { width       : Float
-     , height      : Float
-     , playerCells : List PlayerCell
-     }
+-- Cells are for View.
+type CellType = EmptyCellType | PlayerCellType Player | TrailCellType Color
+type alias Cell =
+         { ctype : CellType
+         , pos   : Position
+         }
 
 init : Float -> Float -> List PlayerCell -> Grid
 init w h playerCells = Grid w h playerCells

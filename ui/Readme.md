@@ -69,5 +69,3 @@ All messages to the server are in string form.
 ```
 
 ## Todo for tomorrow:
-1. Simulate complete workflow with sending to echo server..
-   -- on user input and ready event.. send server msgs of gameinit, send user movement from buttons.
