@@ -6,30 +6,32 @@ import List.Extra as ListE
 import Grid.Player exposing (..)
 import Grid.Message exposing (..)
 
-type CellType = EmptyCell | PlayerCell Player | Trail Color
+type CellType = EmptyCellType | PlayerCellType Player | TrailCellType Color
 type alias Cell =
          { ctype : CellType
-         , x     : Float
-         , y     : Float
+         , pos   : Position
          }
+
+type alias PlayerCell =
+    { player : Player
+    , pos    : Position
+    }
 
 type alias Grid =
      { width       : Float
      , height      : Float
-     , playerCells : List Cell
+     , playerCells : List PlayerCell
      }
 
-init : Float -> Float -> List Cell -> Grid
+init : Float -> Float -> List PlayerCell -> Grid
 init w h playerCells = Grid w h playerCells
 
 gridToList : Grid -> List Cell
 gridToList grid =
-    let cellToTrailCell cell = case cell.ctype of
-                                   PlayerCell p -> List.map (\ (x,y) -> Cell (Trail p.color) x y)  p.trail
-                                   _ -> []
-    in List.concat [ (List.map (\ (w, h) -> Cell EmptyCell w h) (ListE.lift2 (,) [0 .. grid.height - 1]  [0 .. grid.width - 1]))
-                   , grid.playerCells
-                   , (List.concatMap cellToTrailCell grid.playerCells)
+    let playerToTrailCell p = List.map (Cell (TrailCellType p.player.color))  p.player.trail
+    in List.concat [ List.map (Cell EmptyCellType) (ListE.lift2 (,) [0 .. grid.height - 1]  [0 .. grid.width - 1])
+                   , List.map (\p -> Cell (PlayerCellType p.player) p.pos) grid.playerCells
+                   , List.concatMap playerToTrailCell grid.playerCells
                    ]
 
 generateGrid : List (Int, String, List Int, (Int, Int)) -> Float -> Float -> Grid
@@ -37,9 +39,10 @@ generateGrid playersData w h =
     let playersCell = List.map genPlayerCell playersData
     in Debug.log "playersCell: " (Grid w h playersCell)
 
-genPlayerCell : (Int, String, List Int, (Int, Int)) -> Cell
+genPlayerCell : (Int, String, List Int, (Int, Int)) -> PlayerCell
 genPlayerCell (id, name, cs, (x, y)) =
-    let (x', y') = (toFloat x, toFloat y)
-    in case cs of
-           r::g::b::_ -> Cell (PlayerCell (Player id name (Color.rgb r g b) North True [(x', y')])) x' y'
-           _          -> Cell EmptyCell x' y'
+    let pos = (toFloat x, toFloat y)
+        (r,g,b) = case cs of
+                      r'::g'::b'::_ -> (r, g, b)
+                      _             -> (100,100,100)
+    in PlayerCell (Player id name (Color.rgb r g b) North True [pos]) pos

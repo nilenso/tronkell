@@ -7,36 +7,33 @@ import Grid.Player exposing (..)
 update : Msg -> Grid -> (Grid, Cmd Msg)
 update msg grid =
     case msg of
-        PlayerMoved pid pos orientation -> ( { grid | playerCells = addPos pid pos orientation grid.playerCells }, Cmd.none)
-        PlayerDied pid -> ({ grid | playerCells = playerDied pid grid.playerCells }, Cmd.none)
-        _ -> (grid, Cmd.none)
+        PlayerMoved pid pos orientation ->
+            ( { grid | playerCells = addPos pid pos orientation grid.playerCells }, Cmd.none)
+        PlayerDied pid ->
+            ( { grid | playerCells = playerDied pid grid.playerCells }, Cmd.none)
+        NoOp -> (grid, Cmd.none)
 
-addPos : PlayerId -> Position -> Orientation -> List Cell -> List Cell
-addPos pid (posx, posy) orien playerCells =
+addPos : PlayerId -> Position -> Orientation -> List PlayerCell -> List PlayerCell
+addPos pid pos' orien playerCells =
     updatePlayer
         pid
-        (\pc ->
-             case pc.ctype of
-                 PlayerCell p -> let p' = { p | trail = List.append [(pc.x, pc.y)] p.trail, orientation = orien }
-                                 in { pc | ctype = PlayerCell p', x = posx, y = posy }
-                 _ -> pc)
-            playerCells
+        (\pc -> let p = pc.player
+                    p' = { p | trail = List.append [pc.pos] p.trail, orientation = orien }
+                in { pc | player = p', pos = pos' })
+        playerCells
 
-playerDied : PlayerId -> List Cell -> List Cell
+playerDied : PlayerId -> List PlayerCell -> List PlayerCell
 playerDied pid playerCells =
-    updatePlayer
-        pid
-        (\pc -> case pc.ctype of
-                    PlayerCell p -> { pc | ctype = PlayerCell { p | alive = False }}
-                    _            -> pc)
-             playerCells
+    updatePlayer pid
+        (\pc -> let p = pc.player
+                    p' = { p | alive = False }
+                in { pc | player = p' })
+        playerCells
 
-updatePlayer : PlayerId -> (Cell -> Cell) -> List Cell -> List Cell
+updatePlayer : PlayerId -> (PlayerCell -> PlayerCell) -> List PlayerCell -> List PlayerCell
 updatePlayer pid f playerCells =
     List.map
-        (\pc -> case pc.ctype of
-                    PlayerCell p -> if p.id == pid
-                                    then f pc
-                                    else pc
-                    _            -> pc)
+        (\pc -> if pc.player.id == pid
+                then f pc
+                else pc)
         playerCells

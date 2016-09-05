@@ -45,26 +45,18 @@ view model =
              |> Maybe.withDefault []
              ])
 
-leftMoveMsg : GM.Cell -> Msg
+leftMoveMsg : GM.PlayerCell -> Msg
 leftMoveMsg cell =
-    case cell.ctype of
-        GM.PlayerCell p -> MovePlayer p.id (cell.x - 1, cell.y) p.orientation
-        _ -> NoOp
+    let (x, y) = cell.pos
+    in MovePlayer cell.player.id (x - 1, y) cell.player.orientation
 
-rightMoveMsg : GM.Cell -> Msg
+rightMoveMsg : GM.PlayerCell -> Msg
 rightMoveMsg cell =
-    case cell.ctype of
-        GM.PlayerCell p -> MovePlayer p.id (cell.x + 1, cell.y) p.orientation
-        _ -> NoOp
+    let (x, y) = cell.pos
+    in MovePlayer cell.player.id (x + 1, y) cell.player.orientation
 
-killPlayerMsg : GM.Cell -> Msg
-killPlayerMsg cell =
-    case cell.ctype of
-        GM.PlayerCell p -> KillPlayer p.id
-        _ -> NoOp
+killPlayerMsg : GM.PlayerCell -> Msg
+killPlayerMsg cell = KillPlayer cell.player.id
 
-getName : GM.Cell -> String
-getName cell =
-    case cell.ctype of
-        GM.PlayerCell p -> p.name
-        _ -> "<bad>"
+getName : GM.PlayerCell -> String
+getName cell = cell.player.name

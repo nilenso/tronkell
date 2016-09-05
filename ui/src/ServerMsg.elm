@@ -45,16 +45,16 @@ nullOr decoder =
     Decode.oneOf [ Decode.null Nothing
                  , Decode.map Just decoder]
 
-decodePlayer : Color -> Decoder GM.Cell
+decodePlayer : Color -> Decoder GM.PlayerCell
 decodePlayer color =
     (Decode.object4
-         (\ id name (x,y) o -> GM.Cell (GM.PlayerCell (GP.Player id name color o True [])) x y)
+         (\ id name coord o -> GM.PlayerCell (GP.Player id name color o True []) coord)
          ("id"          := Decode.int)
          ("name"        := Decode.string)
          ("coordinate"  := decodePosition)
          ("orientation" := decodeOrientation))
 
-decodePlayers : List Color -> Decoder (List GM.Cell)
+decodePlayers : List Color -> Decoder (List GM.PlayerCell)
 decodePlayers colors =
     decodeList (List.map decodePlayer colors)
 
@@ -125,18 +125,16 @@ encodeMsg msg =
            Just obj -> obj |> Encode.object |> Encode.encode 0
            Nothing -> ""
 
-encodePlayer : GM.Cell -> Encode.Value
+encodePlayer : GM.PlayerCell -> Encode.Value
 encodePlayer pc =
-    case pc.ctype of
-        GM.PlayerCell p ->
-            [ ("id", Encode.int p.id)
-            , ("name", Encode.string p.name)
-            , ("coordinate", encodePosition (pc.x, pc.y))
-            , ("orientation", Encode.string (toString p.orientation))
-            ]
-            |> Encode.object
+    let p = pc.player
+    in [ ("id", Encode.int p.id)
+       , ("name", Encode.string p.name)
+       , ("coordinate", encodePosition pc.pos)
+       , ("orientation", Encode.string (toString p.orientation))
+       ]
+        |> Encode.object
 
-        _            -> Encode.null
 
 encodePosition : GP.Position -> Encode.Value
 encodePosition (x, y) =
@@ -145,8 +143,8 @@ encodePosition (x, y) =
     ]
     |> Encode.object
 
-changeColorOfPlayerCell : GM.Cell -> Color -> GM.Cell
+changeColorOfPlayerCell : GM.PlayerCell -> Color -> GM.PlayerCell
 changeColorOfPlayerCell cell c =
-    case cell.ctype of
-        GM.PlayerCell p -> { cell | ctype = GM.PlayerCell { p | color = c }}
-        _ -> cell
+    let p = cell.player
+        p' = { p | color = c }
+    in { cell | player = p' }

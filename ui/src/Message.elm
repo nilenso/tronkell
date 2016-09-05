@@ -7,7 +7,7 @@ import Grid.Player as GP
 type alias GameWidth = Float
 type alias GameHeight = Float
 
-type alias PlayerCells = List GM.Cell
+type alias PlayerCells = List GM.PlayerCell
 
 type Msg =
     -- Messages for mocking server  -- would go away

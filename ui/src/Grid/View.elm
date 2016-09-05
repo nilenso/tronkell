@@ -25,7 +25,7 @@ view grid =
 
 renderCell : Boundary -> Cell -> C.Form
 renderCell b cell =
-    let (cx, cy) = bringToCorner b (cell.x, cell.y)
+    let (cx, cy) = bringToCorner b cell.pos
     in cellStructure cell
         |> fillCell cell
         |> C.move (cx * cellWidth, cy * cellHeight)
@@ -36,9 +36,9 @@ bringToCorner (w, h) (x, y) = (x - w / 2 + 0.5, y - h / 2 + 0.5)
 cellStructure : Cell -> C.Shape
 cellStructure cell =
     case cell.ctype of
-        EmptyCell -> C.square (cellWidth - 1)
-        PlayerCell p -> C.oval (cellWidth - 1) (cellHeight - 1)
-        Trail _ -> C.oval (cellHeight - 1 ) (cellWidth - 1)
+        EmptyCellType    -> C.square (cellWidth - 1)
+        PlayerCellType p -> C.oval (cellWidth - 1) (cellHeight - 1)
+        TrailCellType _  -> C.oval (cellHeight - 1 ) (cellWidth - 1)
 
 fillCell : Cell -> C.Shape -> C.Form
 fillCell cell shape =
@@ -47,8 +47,8 @@ fillCell cell shape =
 colorOfCell : Cell -> Color
 colorOfCell cell =
     case cell.ctype of
-        EmptyCell    -> Color.grey
-        PlayerCell p -> if p.alive
-                        then p.color
-                        else Color.red
-        Trail c      -> c
+        EmptyCellType    -> Color.grey
+        PlayerCellType p -> if p.alive
+                            then p.color
+                            else Color.red
+        TrailCellType c -> c
