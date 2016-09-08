@@ -40,7 +40,7 @@ instance ToJSON Player where
              , "trail"       .= trail ]
 
 instance ToJSON UserID where
-  toJSON = A.String . getUserID
+  toJSON = A.Number . fromInteger . toInteger . getUserID
 
 instance ToJSON OutMessage where
   toJSON msg =
@@ -67,7 +67,7 @@ instance ToJSON OutMessage where
                    case winnerId of
                      Just wId -> A.toJSON wId
                      Nothing  -> Null]
-      ServerMsg msg -> toStringValue msg
+      ServerMsg m -> toStringValue m
 
 
 toStringValue :: (Show a) => a -> Value
