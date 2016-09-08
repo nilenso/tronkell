@@ -10,6 +10,7 @@ import Tronkell.Game.Engine
 import qualified Data.Map as Map
 import Data.List (nub, nubBy)
 import Data.Maybe (isNothing, fromJust)
+import Data.String (fromString)
 import System.Random
 
 import Test.Hspec
@@ -36,7 +37,7 @@ instance Arbitrary GameConfig where
 
 instance Arbitrary Player where
   arbitrary = do
-    n <- PlayerNick <$> arbitrary
+    n <- PlayerNick . fromString <$> arbitrary
     x <- unBoundedInt <$> arbitrary
     y <- unBoundedInt <$> arbitrary
     o <- arbitraryBoundedEnum
@@ -51,7 +52,7 @@ areOverlappingPlayers p1 p2 =
 
 genPlayer :: GameConfig -> Gen Player
 genPlayer GameConfig{..} = do
-  nick <- PlayerNick <$> arbitrary
+  nick <- PlayerNick . fromString <$> arbitrary
   x    <- unBoundedInt <$> arbitrary `suchThat` (>= 0) `suchThat` (< BoundedInt gameWidth)
   y    <- unBoundedInt <$> arbitrary `suchThat` (>= 0) `suchThat` (< BoundedInt gameHeight)
   o    <- arbitraryBoundedEnum

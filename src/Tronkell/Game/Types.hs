@@ -2,6 +2,7 @@ module Tronkell.Game.Types where
 
 import Control.Monad.State.Strict
 import Data.Map
+import qualified Data.Text as T
 
 import Tronkell.Types
 
@@ -20,7 +21,7 @@ data Game = Game { gameWinner  :: Maybe Player
 data GameStatus = InProgress | Finished
                   deriving (Eq, Enum, Show)
 
-newtype PlayerNick = PlayerNick { getPlayerNick :: String }
+newtype PlayerNick = PlayerNick { getPlayerNick :: T.Text }
                      deriving (Eq, Ord, Show)
 
 data Player = Player { playerNick        :: PlayerNick

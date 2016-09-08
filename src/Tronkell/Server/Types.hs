@@ -9,6 +9,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 
 data Server = Server { serverGameConfig :: Game.GameConfig
+                     , serverLastUserId :: MVar UserID
                      , serverUsers      :: MVar (M.Map UserID User)
                      , serverSocket     :: Socket
                      , serverChan       :: TChan InMessage
@@ -16,7 +17,7 @@ data Server = Server { serverGameConfig :: Game.GameConfig
                      , internalChan     :: Chan ServerSignals
                      }
 
-newtype UserID = UserID { getUserID :: T.Text }
+newtype UserID = UserID { getUserID :: Int }
                  deriving (Eq, Show, Ord)
 
 data User = User { userId    :: UserID

@@ -24,11 +24,12 @@ instance Show Server where
 
 genServer = do
     let conf = GTypes.GameConfig 100 100 1 1
+    firstUId <- newMVar (UserID 0)
     users <- newMVar M.empty
     serverChan <- atomically newTChan
     clientsChan <- newChan
     internalChan <- newChan
-    return $ Server conf users undefined serverChan clientsChan internalChan
+    return $ Server conf firstUId users undefined serverChan clientsChan internalChan
 
 genHandle inputString = do
   knob <- MSocket.newMockSocket $ C.pack inputString
@@ -44,16 +45,16 @@ main = hspec $
         run $ runClient clientHandle server
         users <- run $ readMVar (serverUsers server)
         assert $ length users == 1 &&
-                 "username" == (getUserID . userId . head . M.elems $ users)
+                 Just "username" == (userNick . head . M.elems $ users)
 
     it "should ask again for user-name if already taken" $
       property $ monadicIO $ do
         clientHandle <- genHandle "Username1\r\nUsername2\r\nquit\r\n"
         server <- run genServer
-        let uId  = UserID "Username1"
+        let uId  = UserID 1
             user = User uId (Just "Username1") Waiting
         run $ modifyMVar_ (serverUsers server) $ \users -> return $ M.insert uId user users
         run $ runClient clientHandle server
         users <- run $ readMVar (serverUsers server)
         assert $ length users == 2 &&
-                 ["Username1", "Username2"] == (getUserID . userId <$> M.elems users)
+                 [Just "Username1", Just "Username2"] == (userNick <$> M.elems users)
