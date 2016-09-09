@@ -27,7 +27,7 @@ websocketHandler inChan outChan pendingConnection = do
   conn <- WS.acceptRequest pendingConnection
   WS.forkPingThread conn 30
   -- get from some mvar passed from server to here.
-  let userId = return (ST.UserID 1)
+  let userId = ST.UserID 1
 
   readThread <- Con.forkIO $ forever $ do
     msg <- Con.readChan outChan
