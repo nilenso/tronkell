@@ -22,6 +22,7 @@ library
                      , Tronkell.Server.Types
                      , Tronkell.Server.Server
                      , Tronkell.Data.Parse
+                     , Tronkell.Network.Websockets
   build-depends:       base >= 4.7 && < 5
                      , mtl
                      , containers
@@ -30,6 +31,11 @@ library
                      , text
                      , stm
                      , aeson
+                     , wai-websockets
+                     , websockets
+                     , warp
+                     , wai
+                     , wai-app-static
   default-language:    Haskell2010
 
 executable tronkell-exe
