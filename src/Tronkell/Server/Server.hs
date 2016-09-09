@@ -34,7 +34,7 @@ startServer gConfig = withSocketsDo $ do
 
   let server = Server gConfig firstUId playersVar sock serverChan clientsChan internalChan
 
-  forkIO $ handleIncomingMessages server Nothing >> return ()
+  forkIO $ void $ handleIncomingMessages server Nothing
 
   mainLoop server
 

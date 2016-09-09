@@ -28,7 +28,7 @@ data User = User { userId    :: UserID
 data UserStatus = Waiting | Ready
                   deriving (Eq, Enum, Bounded, Show)
 
-data InMessage = PlayerJoined    UserID
+data InMessage = PlayerJoined    UserID -- should not these be UserJoined ?
                | PlayerReady     UserID
                | PlayerExit      UserID
                | PlayerTurnLeft  UserID
