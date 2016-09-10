@@ -6,4 +6,8 @@
 - PlayerNick feels unwieldly for a protocol, use an ID instead or in addition.
 
 ## Implementation todo
+- Add PlayerId in server : take from UserId ;
+  - Needed to client side ids.
+- Flush the client in channel before taking user game inputs (l/r)
+- In UI - need to take Up/Down keys and convert to Left/Right as well.
 - Ability to change playernick at any point of time.

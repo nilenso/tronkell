@@ -108,21 +108,20 @@ playClient clientId inChan Server{..} = do
     outMsg <- readChan outClientChan
     writeChan clientSpecificOutChan (clientId, outMsg)
 
-  -- clientInternalChan <- dupChan internalChan
+  clientInternalChan <- dupChan internalChan
 
   -- otherwise gameready msg for this second client joining is lost.
   atomically $ writeTChan serverChan $ PlayerReady clientId
 
-  -- # TODO : commenting this code : see 'hFlush clientHdl' line/comment
   -- block on ready-signal from server-thread to start the game.
-  -- signal <- readChan clientInternalChan
-  -- case signal of
-  --   GameReadySignal config players -> writeChan outClientChan $ GameReady config players
+  signal <- readChan clientInternalChan
+  case signal of
+    GameReadySignal config players -> writeChan outClientChan $ GameReady config players
 
   writeList2Chan outClientChan [ ServerMsg "Here.. you go!!!"
                                , ServerMsg "Movements: type L for left , R for right, Q for quit... enjoy." ]
 
-  -- for this functionality we would need to use TChan for userChan/inChan
+  -- todo: for this functionality we would need to use TChan for userChan/inChan
   -- hFlush clientHdl
 
   fix $ \loop ->

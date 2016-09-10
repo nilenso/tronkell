@@ -10,6 +10,7 @@ import WebSocket
 import Json.Decode as Decode exposing ((:=), Decoder)
 import Json.Encode as Encode
 import Color exposing (Color)
+import String
 
 wsserver = "ws://localhost:8331"
 playerColors = List.append [Color.yellow, Color.blue, Color.green] (List.repeat 100 Color.black)
@@ -24,9 +25,9 @@ decodeMsg colors json =
     let decodeMsg msgType =
             case msgType of
                 "GameReady"  ->
-                    Decode.object3 (\w h ps -> GameReady w h (List.map2 changeColorOfPlayerCell ps colors))
-                        ("width" := Decode.float) ("height" := Decode.float) ("players" := decodePlayers colors)
-                "GameEnded"   -> Decode.object1 GameEnded (nullOr ("winner" := Decode.int))
+                    Decode.object2 (\ (w, h) ps -> GameReady w h (List.map2 changeColorOfPlayerCell ps colors))
+                        ("config" := decodeConfig) ("players" := decodePlayers colors)
+                "GameEnded"   -> Decode.object1 GameEnded ("winnerId" := nullOr Decode.int)
                 "PlayerDied"  -> Decode.object1 (\id -> GridMsg (GMsg.PlayerDied id)) ("id" := Decode.int)
                 "PlayerMoved" ->
                     Decode.object3 (\id coordinate orientation ->
@@ -35,8 +36,8 @@ decodeMsg colors json =
                 "ServerMsg"   -> Decode.object1 ServerMsg ("message" := Decode.string)
                 _             -> Decode.succeed NoOp
         decoder = Decode.andThen ("type" := Decode.string ) decodeMsg
-        res     = Decode.decodeString decoder json
-    in case res of
+        res     = Decode.decodeString decoder (Debug.log "received json: " json)
+    in case Debug.log "servermsg: " res of
            Ok m -> m
            Err _ -> NoOp
 
@@ -50,7 +51,7 @@ decodePlayer color =
     (Decode.object4
          (\ id name coord o -> GM.PlayerCell (GP.Player id name color o True []) coord)
          ("id"          := Decode.int)
-         ("name"        := Decode.string)
+         ("nick"        := Decode.string)
          ("coordinate"  := decodePosition)
          ("orientation" := decodeOrientation))
 
@@ -70,6 +71,9 @@ decodeList decoders =
 decodePosition : Decoder GP.Position
 decodePosition = Decode.object2 (\ x y -> (x,y)) ("x" := Decode.float) ("y" := Decode.float)
 
+decodeConfig : Decoder GP.Position
+decodeConfig = Decode.object2 (\ x y -> (x,y)) ("width" := Decode.float) ("height" := Decode.float)
+
 decodeOrientation : Decoder GP.Orientation
 decodeOrientation =
     Decode.andThen
@@ -84,42 +88,42 @@ decodeOrientation =
 encodeMsg : Msg -> String
 encodeMsg msg =
     let msgObject =
-            case Debug.log "Message: " msg of
-                GridMsg (GMsg.PlayerMoved id (x, y) orien) ->
-                    [ ("id", Encode.int id)
-                    , ("coordinate", Encode.object [ ("x", Encode.float x)
-                                                   , ("y", Encode.float y)])
-                    , ("orientation", Encode.string (toString orien))
-                    , ("type", Encode.string "PlayerMoved") -- simulates message from server.
-                    ]
-                  |> Just
+            case msg of
+                -- GridMsg (GMsg.PlayerMoved id (x, y) orien) ->
+                --     [ ("id", Encode.int id)
+                --     , ("coordinate", Encode.object [ ("x", Encode.float x)
+                --                                    , ("y", Encode.float y)])
+                --     , ("orientation", Encode.string (toString orien))
+                --     , ("type", Encode.string "PlayerMoved") -- simulates message from server.
+                --     ]
+                --   |> Just
 
-                GridMsg (GMsg.PlayerDied id) ->
-                    [ ("id", Encode.int id)
-                    , ("type", Encode.string "PlayerDied")
-                    ]
-                  |> Just
+                -- GridMsg (GMsg.PlayerDied id) ->
+                --     [ ("id", Encode.int id)
+                --     , ("type", Encode.string "PlayerDied")
+                --     ]
+                --   |> Just
 
-                GameReady w h ps ->
-                    [ ("width", Encode.float w)
-                    , ("height", Encode.float h)
-                    , ("players", Encode.list (List.map encodePlayer ps))
-                    , ("type", Encode.string "GameReady")
-                    ]
-                  |> Just
+                -- GameReady w h ps ->
+                --     [ ("width", Encode.float w)
+                --     , ("height", Encode.float h)
+                --     , ("players", Encode.list (List.map encodePlayer ps))
+                --     , ("type", Encode.string "GameReady")
+                --     ]
+                --   |> Just
 
-                GameEnded mPid ->
-                    [ ("winner", case mPid of
-                                     Nothing -> Encode.null
-                                     Just pid -> Encode.int pid)
-                    , ("type", Encode.string "GameEnded")
-                    ]
-                  |> Just
-                ServerMsg msg ->
-                    [ ("message", Encode.string msg)
-                    , ("type", Encode.string "ServerMsg")
-                    ]
-                  |> Just
+                -- GameEnded mPid ->
+                --     [ ("winner", case mPid of
+                --                      Nothing -> Encode.null
+                --                      Just pid -> Encode.int pid)
+                --     , ("type", Encode.string "GameEnded")
+                --     ]
+                --   |> Just
+                -- ServerMsg msg ->
+                --     [ ("message", Encode.string msg)
+                --     , ("type", Encode.string "ServerMsg")
+                --     ]
+                --   |> Just
 
                 PlayerReady ->
                     Just [ ("type", Encode.string "Ready") ]
@@ -134,27 +138,26 @@ encodeMsg msg =
                     Just [ ("type", Encode.string "Right") ]
 
                 _ -> Nothing
-    in case msgObject of
+    in case Debug.log "sending" msgObject of
            Just obj -> obj |> Encode.object |> Encode.encode 0
            Nothing -> ""
 
-encodePlayer : GM.PlayerCell -> Encode.Value
-encodePlayer pc =
-    let p = pc.player
-    in [ ("id", Encode.int p.id)
-       , ("name", Encode.string p.name)
-       , ("coordinate", encodePosition pc.pos)
-       , ("orientation", Encode.string (toString p.orientation))
-       ]
-        |> Encode.object
+-- encodePlayer : GM.PlayerCell -> Encode.Value
+-- encodePlayer pc =
+--     let p = pc.player
+--     in [ ("id", Encode.int p.id)
+--        , ("name", Encode.string p.name)
+--        , ("coordinate", encodePosition pc.pos)
+--        , ("orientation", Encode.string (toString p.orientation))
+--        ]
+--         |> Encode.object
 
-
-encodePosition : GP.Position -> Encode.Value
-encodePosition (x, y) =
-    [ ("x", Encode.float x)
-    , ("y", Encode.float y)
-    ]
-    |> Encode.object
+-- encodePosition : GP.Position -> Encode.Value
+-- encodePosition (x, y) =
+--     [ ("x", Encode.float x)
+--     , ("y", Encode.float y)
+--     ]
+--     |> Encode.object
 
 changeColorOfPlayerCell : GM.PlayerCell -> Color -> GM.PlayerCell
 changeColorOfPlayerCell cell c =

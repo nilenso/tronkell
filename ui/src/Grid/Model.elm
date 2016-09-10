@@ -36,15 +36,15 @@ gridToList grid =
                    , List.concatMap playerToTrailCell grid.playerCells
                    ]
 
-generateGrid : List (Int, String, List Int, (Int, Int)) -> Float -> Float -> Grid
-generateGrid playersData w h =
-    let playersCell = List.map genPlayerCell playersData
-    in Debug.log "playersCell: " (Grid w h playersCell)
+-- generateGrid : List (Int, String, List Int, (Int, Int)) -> Float -> Float -> Grid
+-- generateGrid playersData w h =
+--     let playersCell = List.map genPlayerCell playersData
+--     in Debug.log "playersCell: " (Grid w h playersCell)
 
-genPlayerCell : (Int, String, List Int, (Int, Int)) -> PlayerCell
-genPlayerCell (id, name, cs, (x, y)) =
-    let pos = (toFloat x, toFloat y)
-        (r,g,b) = case cs of
-                      r'::g'::b'::_ -> (r, g, b)
-                      _             -> (100,100,100)
-    in PlayerCell (Player id name (Color.rgb r g b) North True [pos]) pos
+-- genPlayerCell : (Int, String, List Int, (Int, Int)) -> PlayerCell
+-- genPlayerCell (id, name, cs, (x, y)) =
+--     let pos = (toFloat x, toFloat y)
+--         (r,g,b) = case cs of
+--                       r'::g'::b'::_ -> (r, g, b)
+--                       _             -> (100,100,100)
+--     in PlayerCell (Player id name (Color.rgb r g b) North True [pos]) pos

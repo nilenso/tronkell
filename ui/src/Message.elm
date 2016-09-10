@@ -11,13 +11,14 @@ type alias PlayerCells = List GM.PlayerCell
 
 type Msg =
     -- Messages for mocking server  -- would go away
-     GeneratePlayers
-   | RandomPlayers (List (Int, String, List Int, (Int, Int)))
-   | MovePlayer GP.PlayerId GP.Position GP.Orientation
-   | KillPlayer GP.PlayerId
+     -- GeneratePlayers
+   -- | RandomPlayers (List (Int, String, List Int, (Int, Int)))
+   -- | MovePlayer GP.PlayerId GP.Position GP.Orientation
+   -- | KillPlayer GP.PlayerId
    -- From UI:
    -- Player Init
-   | PlayerName GP.PlayerName
+    PlayerName GP.PlayerName
+   | RegisterNick
    | PlayerReady
    | PlayerQuit
    | MoveLeft

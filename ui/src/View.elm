@@ -19,44 +19,52 @@ view model =
     div []
         (List.concat
              [ -- Grid View
-               [ Maybe.withDefault (div [] [text "Game coming"]) (Maybe.map (App.map GridMsg << GV.view) model.grid)]
+               [ Maybe.withDefault (div [] [ text "Waiting for your inputs..." ]) (Maybe.map (App.map GridMsg << GV.view) model.grid)]
 
              -- Main Player buttons
              , [ div []
-                     [ input [ onInput PlayerName
+                     [ text "Register with a nick.."
+                     , input [ onInput PlayerName
                              , placeholder "Take a nick"]
                            []
-                     , button [onClick PlayerReady] [text "Ready"]
-                     , button [onClick PlayerQuit] [text "Quit"]]]
+                     ,  button [onClick RegisterNick] [text "Register"]
+
+                     , div []
+                         [ text "Send Ready when you are ready to join the game !!!"
+                         , button [onClick PlayerReady] [text "Ready"]
+                         , button [onClick PlayerQuit] [text "Quit"]
+                         ]
+                     ]
 
              -- Simulation code.
-             , [ div []
-                     [ button [onClick GeneratePlayers] [text "Start Random Game"]
-                     , button [] [text "Stop Game"]]]
+             -- , [ div []
+             --         [ button [onClick GeneratePlayers] [text "Start Random Game"]
+             --         , button [] [text "Stop Game"]]]
 
-             , model.grid
-             |> Maybe.map (List.map (\p -> div []
-                                               [ text (getName p)
-                                               , button [ onClick (leftMoveMsg p)] [text "<- "]
-                                               , button [ onClick (rightMoveMsg p)] [text  " ->"]
-                                               , button [ onClick (killPlayerMsg p)] [text "kill"]
-                                               ])
-                               << .playerCells)
-             |> Maybe.withDefault []
+             -- , model.grid
+             -- |> Maybe.map (List.map (\p -> div []
+             --                                   [ text (getName p)
+             --                                   , button [ onClick (leftMoveMsg p)] [text "<- "]
+             --                                   , button [ onClick (rightMoveMsg p)] [text  " ->"]
+             --                                   , button [ onClick (killPlayerMsg p)] [text "kill"]
+             --                                   ])
+             --                   << .playerCells)
+             -- |> Maybe.withDefault []
+               ]
              ])
 
-leftMoveMsg : GM.PlayerCell -> Msg
-leftMoveMsg cell =
-    let (x, y) = cell.pos
-    in MovePlayer cell.player.id (x - 1, y) cell.player.orientation
+-- leftMoveMsg : GM.PlayerCell -> Msg
+-- leftMoveMsg cell =
+--     let (x, y) = cell.pos
+--     in MovePlayer cell.player.id (x - 1, y) cell.player.orientation
 
-rightMoveMsg : GM.PlayerCell -> Msg
-rightMoveMsg cell =
-    let (x, y) = cell.pos
-    in MovePlayer cell.player.id (x + 1, y) cell.player.orientation
+-- rightMoveMsg : GM.PlayerCell -> Msg
+-- rightMoveMsg cell =
+--     let (x, y) = cell.pos
+--     in MovePlayer cell.player.id (x + 1, y) cell.player.orientation
 
-killPlayerMsg : GM.PlayerCell -> Msg
-killPlayerMsg cell = KillPlayer cell.player.id
+-- killPlayerMsg : GM.PlayerCell -> Msg
+-- killPlayerMsg cell = KillPlayer cell.player.id
 
-getName : GM.PlayerCell -> String
-getName cell = cell.player.name
+-- getName : GM.PlayerCell -> String
+-- getName cell = cell.player.name

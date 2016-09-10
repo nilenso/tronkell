@@ -16,7 +16,7 @@ instance ToJSON T.Coordinate where
   toJSON (x,y) = A.object ["x" .= x, "y" .= y]
 
 instance ToJSON T.Orientation where
-  toJSON = toStringValue
+  toJSON = A.String . Text.pack . show
 
 instance ToJSON GT.GameConfig where
   toJSON (GameConfig w h playerSpeed ticksPerSec) =
@@ -26,15 +26,14 @@ instance ToJSON GT.GameConfig where
              , "ticks-per-second" .= ticksPerSec ]
 
 instance ToJSON PlayerNick where
-  toJSON (PlayerNick nick) = toStringValue nick
+  toJSON (PlayerNick nick) = A.String nick
 
 instance ToJSON PlayerStatus where
-  toJSON = toStringValue
+  toJSON = A.String . Text.pack . show
 
 instance ToJSON Player where
   toJSON (Player nick status coord orient trail) =
-    A.object [ "userid"      .= nick
-             , "nick"        .= nick
+    A.object [ "nick"        .= nick
              , "status"      .= status
              , "coordinate"  .= coord
              , "orientation" .= orient
@@ -47,32 +46,31 @@ instance ToJSON OutMessage where
   toJSON msg =
     case msg of
       ST.GameReady config players ->
-        A.object [ "type"    .= toStringValue ("GameReady" :: String)
+        A.object [ "type"    .= A.String "GameReady"
                  , "config"  .= config
                  , "players" .= players
                  ]
       ST.PlayerMoved uId coord orien ->
-        A.object [ "type"        .= toStringValue ("PlayerMoved" :: String)
-                 , "userid"      .= uId
+        A.object [ "type"        .= A.String "PlayerMoved"
+                 , "id"          .= uId
                  , "coordinate"  .= coord
                  , "orientation" .= orien
                  ]
       ST.PlayerDied uId coord ->
-        A.object [ "type"       .= toStringValue ("PlayerDied" :: String)
-                 , "userid"     .= uId
+        A.object [ "type"       .= A.String "PlayerDied"
+                 , "id"         .= uId
                  , "coordinate" .= coord
                  ]
       ST.GameEnded winnerId ->
-        A.object [ "type"     .= toStringValue ("GameEnded" :: String)
+        A.object [ "type"     .= A.String "GameEnded"
                  , "winnerId" .=
                    case winnerId of
                      Just wId -> A.toJSON wId
                      Nothing  -> Null]
-      ServerMsg m -> toStringValue m
-
-
-toStringValue :: (Show a) => a -> Value
-toStringValue = A.String . Text.pack . show
+      ServerMsg m ->
+        A.object [ "type" .= A.String "ServerMsg"
+                 , "message" .= m
+                 ]
 
 type JsonInMessage = UserID -> InMessage
 
