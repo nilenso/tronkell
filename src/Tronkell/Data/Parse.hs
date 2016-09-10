@@ -84,7 +84,9 @@ instance FromJSON JsonInMessage where
       "Exit"   -> return PlayerExit
       "Left"   -> return PlayerTurnLeft
       "Right"  -> return PlayerTurnRight
-      "Joined" -> return PlayerJoined
-      j        -> AT.typeMismatch "InMessage" j
+      "Name"   -> do
+        name <- v .: "name"
+        return (flip PlayerName name)
+      j        -> AT.typeMismatch "InMessage" j -- should be wrong data error.
 
   parseJSON invalid = AT.typeMismatch "InMessage" invalid

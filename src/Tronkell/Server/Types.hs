@@ -33,6 +33,7 @@ data InMessage = PlayerJoined    UserID -- should not these be UserJoined ?
                | PlayerExit      UserID
                | PlayerTurnLeft  UserID
                | PlayerTurnRight UserID
+               | PlayerName      UserID T.Text
                deriving (Show)
 
 data OutMessage = GameReady   Game.GameConfig [Game.Player]

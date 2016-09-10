@@ -29,6 +29,8 @@ websocketHandler inChan outChan pendingConnection = do
   -- get from some mvar passed from server to here.
   let userId = ST.UserID 1
 
+  Con.writeChan inChan $ ST.PlayerJoined userId
+
   readThread <- Con.forkIO $ forever $ do
     msg <- Con.readChan outChan
     WS.sendDataMessage conn . WS.Binary . A.encode $ msg

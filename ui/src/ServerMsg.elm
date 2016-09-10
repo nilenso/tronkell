@@ -11,7 +11,7 @@ import Json.Decode as Decode exposing ((:=), Decoder)
 import Json.Encode as Encode
 import Color exposing (Color)
 
-wsserver = "ws://echo.websocket.org"
+wsserver = "ws://localhost:8331"
 playerColors = List.append [Color.yellow, Color.blue, Color.green] (List.repeat 100 Color.black)
 
 listenServerMsg = WebSocket.listen wsserver (decodeMsg playerColors)
@@ -120,6 +120,19 @@ encodeMsg msg =
                     , ("type", Encode.string "ServerMsg")
                     ]
                   |> Just
+
+                PlayerReady ->
+                    Just [ ("type", Encode.string "Ready") ]
+                PlayerName p ->
+                    Just [ ("name", Encode.string p)
+                         , ("type", Encode.string "Name") ]
+                PlayerQuit ->
+                    Just [ ("type", Encode.string "Quit") ]
+                MoveLeft ->
+                    Just [ ("type", Encode.string "Left") ]
+                MoveRight ->
+                    Just [ ("type", Encode.string "Right") ]
+
                 _ -> Nothing
     in case msgObject of
            Just obj -> obj |> Encode.object |> Encode.encode 0

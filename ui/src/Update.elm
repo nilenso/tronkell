@@ -24,9 +24,9 @@ update msg model =
 
         PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
         PlayerReady      -> ( model, readyCmds model.nick )
-        PlayerQuit       -> ( model, webSocketSend "quit" )
-        MoveLeft         -> ( model, webSocketSend "L" )
-        MoveRight        -> ( model, webSocketSend "R" )
+        PlayerQuit       -> ( model, sendServerMsg PlayerQuit )
+        MoveLeft         -> ( model, sendServerMsg MoveLeft )
+        MoveRight        -> ( model, sendServerMsg MoveRight )
 
         GameReady w h ps -> ( { model | grid = Just (GM.init w h ps) }, Cmd.none)
         GameEnded wId    -> ( { model | winnerId = wId }, Cmd.none )
@@ -47,8 +47,8 @@ webSocketSend s = Debug.log s Cmd.none
 readyCmds : Maybe GP.PlayerName -> Cmd Msg
 readyCmds pn =
     case pn of
-        Just p -> Cmd.batch [ webSocketSend p
-                            , webSocketSend "ready"]
+        Just p -> Cmd.batch [ sendServerMsg PlayerReady
+                            , sendServerMsg (PlayerName p) ]
         Nothing -> Cmd.none
 
 gridWidth = 50
