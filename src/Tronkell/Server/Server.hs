@@ -8,8 +8,6 @@ import Tronkell.Types
 import Tronkell.Game.Engine as Engine
 import Tronkell.Network.Websockets as W
 
-import Network (PortID(..), accept, listenOn, withSocketsDo)
-
 import Control.Concurrent
 import Control.Concurrent.STM
 

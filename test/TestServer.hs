@@ -17,45 +17,51 @@ import Tronkell.Server.Types as STypes
 import Tronkell.Server.Server as SServer
 import Tronkell.Game.Types as GTypes
 
-import MockSocket as MSocket
-
 instance Show Server where
   show Server{..} = "Server: " ++ show serverGameConfig
 
--- genServer = do
---     let conf = GTypes.GameConfig 100 100 1 1
---     firstUId <- newMVar (UserID 0)
---     users <- newMVar M.empty
---     serverChan <- atomically newTChan
---     clientsChan <- newChan
---     internalChan <- newChan
---     return $ Server conf firstUId users undefined serverChan clientsChan internalChan
-
--- genHandle inputString = do
---   knob <- MSocket.newMockSocket $ C.pack inputString
---   newFileHandle knob "tmp.txt" ReadWriteMode
+genServer = do
+    let conf = GTypes.GameConfig 100 100 1 1
+    users <- newMVar M.empty
+    networkInChan         <- newChan
+    clientSpecificOutChan <- newChan
+    serverChan <- atomically newTChan
+    clientsChan <- newChan
+    internalChan <- newChan
+    return $ Server conf users (networkInChan, clientSpecificOutChan) serverChan clientsChan internalChan
 
 main :: IO ()
-main = return ()
-  -- hspec $
-  -- describe "runClient : " $ do
-  --   it "should take user name first" $
-  --     property $ monadicIO $ do
-  --       clientHandle <- genHandle "username\r\nquit\r\nmore-random-input\r\n"
-  --       server <- run genServer
-  --       run $ runClient clientHandle server
-  --       users <- run $ readMVar (serverUsers server)
-  --       assert $ length users == 1 &&
-  --                Just "username" == (userNick . head . M.elems $ users)
+main = hspec $
+  describe "runClient : " $ do
+    it "should take user name first" $
+      property $ monadicIO $ do
+        clientChan <- run newChan
+        let uId = UserID 0
+        run $ writeChan clientChan (PlayerName uId "ashish")
+        run $ writeChan clientChan (PlayerExit uId)
+        run $ writeChan clientChan (PlayerName uId "bad-name")
+        server <- run genServer
+        run $ runClient uId clientChan server
+        users <- run $ readMVar (serverUsers server)
+        assert $ length users == 1 &&
+                 Just "ashish" == (userNick . head . M.elems $ users)
 
-  --   it "should ask again for user-name if already taken" $
-  --     property $ monadicIO $ do
-  --       clientHandle <- genHandle "Username1\r\nUsername2\r\nquit\r\n"
-  --       server <- run genServer
-  --       let uId  = UserID 1
-  --           user = User uId (Just "Username1") Waiting
-  --       run $ modifyMVar_ (serverUsers server) $ \users -> return $ M.insert uId user users
-  --       run $ runClient clientHandle server
-  --       users <- run $ readMVar (serverUsers server)
-  --       assert $ length users == 2 &&
-  --                [Just "Username1", Just "Username2"] == (userNick <$> M.elems users)
+    it "should ask again for user-name if already taken" $
+      property $ monadicIO $ do
+        clientChan <- run newChan
+        let uId  = UserID 1
+            takenName = "ashish1"
+            uId2 = UserID 2
+            user = User uId2 (Just takenName) Waiting
+
+        run $ writeChan clientChan (PlayerName uId takenName)
+        run $ writeChan clientChan (PlayerName uId "ashish2")
+        run $ writeChan clientChan (PlayerExit uId)
+
+        server <- run genServer
+        -- uId2 has taken same name as "takenName"
+        run $ modifyMVar_ (serverUsers server) $ \users -> return $ M.insert uId2 user users
+        run $ runClient uId clientChan server
+        users <- run $ readMVar (serverUsers server)
+        assert $ length users == 2 &&
+                 [Just "ashish2", Just "ashish1"] == (userNick <$> M.elems users)
