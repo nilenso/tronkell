@@ -17,12 +17,6 @@ import String
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
-        -- GeneratePlayers -> ( model, randomGridCmd )
-        -- RandomPlayers playersData -> let grid = (GM.generateGrid playersData gridWidth gridHeight)
-        --                              in ( model, sendServerMsg (GameReady gridWidth gridHeight grid.playerCells))
-        -- MovePlayer pid pos orien -> ( model, sendServerMsg (GridMsg (GMsg.PlayerMoved pid pos orien)))
-        -- KillPlayer pid           -> ( model, sendServerMsg (GridMsg (GMsg.PlayerDied pid)))
-
         PlayerName name  -> ( { model | nick = Just name }, Cmd.none )
         RegisterNick     -> ( model, registerNickCmd model.nick )
         PlayerReady      -> ( model, sendServerMsg PlayerReady )
@@ -43,18 +37,6 @@ update msg model =
             |> Maybe.withDefault ( model, Cmd.none )
 
         NoOp -> ( model, Cmd.none )
-
-gridWidth = 50
-gridHeight = 50
-
--- randomGridCmd : Cmd Msg
--- randomGridCmd =
---     Random.generate RandomPlayers
---         (Random.list 3 (Random.map4 (,,,)
---                             (Random.int 1 10)
---                             (RString.string 5 RChar.english)
---                             (Random.list 3 (Random.int 0 255))
---                             (Random.pair (Random.int 0 (gridWidth - 1)) (Random.int 0 (gridHeight - 1)))))
 
 registerNickCmd : Maybe GP.PlayerName -> Cmd Msg
 registerNickCmd nick =

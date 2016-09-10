@@ -89,42 +89,6 @@ encodeMsg : Msg -> String
 encodeMsg msg =
     let msgObject =
             case msg of
-                -- GridMsg (GMsg.PlayerMoved id (x, y) orien) ->
-                --     [ ("id", Encode.int id)
-                --     , ("coordinate", Encode.object [ ("x", Encode.float x)
-                --                                    , ("y", Encode.float y)])
-                --     , ("orientation", Encode.string (toString orien))
-                --     , ("type", Encode.string "PlayerMoved") -- simulates message from server.
-                --     ]
-                --   |> Just
-
-                -- GridMsg (GMsg.PlayerDied id) ->
-                --     [ ("id", Encode.int id)
-                --     , ("type", Encode.string "PlayerDied")
-                --     ]
-                --   |> Just
-
-                -- GameReady w h ps ->
-                --     [ ("width", Encode.float w)
-                --     , ("height", Encode.float h)
-                --     , ("players", Encode.list (List.map encodePlayer ps))
-                --     , ("type", Encode.string "GameReady")
-                --     ]
-                --   |> Just
-
-                -- GameEnded mPid ->
-                --     [ ("winner", case mPid of
-                --                      Nothing -> Encode.null
-                --                      Just pid -> Encode.int pid)
-                --     , ("type", Encode.string "GameEnded")
-                --     ]
-                --   |> Just
-                -- ServerMsg msg ->
-                --     [ ("message", Encode.string msg)
-                --     , ("type", Encode.string "ServerMsg")
-                --     ]
-                --   |> Just
-
                 PlayerReady ->
                     Just [ ("type", Encode.string "Ready") ]
                 PlayerName p ->
@@ -141,23 +105,6 @@ encodeMsg msg =
     in case Debug.log "sending" msgObject of
            Just obj -> obj |> Encode.object |> Encode.encode 0
            Nothing -> ""
-
--- encodePlayer : GM.PlayerCell -> Encode.Value
--- encodePlayer pc =
---     let p = pc.player
---     in [ ("id", Encode.int p.id)
---        , ("name", Encode.string p.name)
---        , ("coordinate", encodePosition pc.pos)
---        , ("orientation", Encode.string (toString p.orientation))
---        ]
---         |> Encode.object
-
--- encodePosition : GP.Position -> Encode.Value
--- encodePosition (x, y) =
---     [ ("x", Encode.float x)
---     , ("y", Encode.float y)
---     ]
---     |> Encode.object
 
 changeColorOfPlayerCell : GM.PlayerCell -> Color -> GM.PlayerCell
 changeColorOfPlayerCell cell c =

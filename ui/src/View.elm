@@ -35,36 +35,5 @@ view model =
                          , button [onClick PlayerQuit] [text "Quit"]
                          ]
                      ]
-
-             -- Simulation code.
-             -- , [ div []
-             --         [ button [onClick GeneratePlayers] [text "Start Random Game"]
-             --         , button [] [text "Stop Game"]]]
-
-             -- , model.grid
-             -- |> Maybe.map (List.map (\p -> div []
-             --                                   [ text (getName p)
-             --                                   , button [ onClick (leftMoveMsg p)] [text "<- "]
-             --                                   , button [ onClick (rightMoveMsg p)] [text  " ->"]
-             --                                   , button [ onClick (killPlayerMsg p)] [text "kill"]
-             --                                   ])
-             --                   << .playerCells)
-             -- |> Maybe.withDefault []
                ]
              ])
-
--- leftMoveMsg : GM.PlayerCell -> Msg
--- leftMoveMsg cell =
---     let (x, y) = cell.pos
---     in MovePlayer cell.player.id (x - 1, y) cell.player.orientation
-
--- rightMoveMsg : GM.PlayerCell -> Msg
--- rightMoveMsg cell =
---     let (x, y) = cell.pos
---     in MovePlayer cell.player.id (x + 1, y) cell.player.orientation
-
--- killPlayerMsg : GM.PlayerCell -> Msg
--- killPlayerMsg cell = KillPlayer cell.player.id
-
--- getName : GM.PlayerCell -> String
--- getName cell = cell.player.name

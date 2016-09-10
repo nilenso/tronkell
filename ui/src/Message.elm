@@ -10,13 +10,8 @@ type alias GameHeight = Float
 type alias PlayerCells = List GM.PlayerCell
 
 type Msg =
-    -- Messages for mocking server  -- would go away
-     -- GeneratePlayers
-   -- | RandomPlayers (List (Int, String, List Int, (Int, Int)))
-   -- | MovePlayer GP.PlayerId GP.Position GP.Orientation
-   -- | KillPlayer GP.PlayerId
    -- From UI:
-   -- Player Init
+   -- Player Init and Game Moves
     PlayerName GP.PlayerName
    | RegisterNick
    | PlayerReady
