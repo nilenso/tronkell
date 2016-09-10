@@ -131,7 +131,7 @@ encodeMsg msg =
                     Just [ ("name", Encode.string p)
                          , ("type", Encode.string "Name") ]
                 PlayerQuit ->
-                    Just [ ("type", Encode.string "Quit") ]
+                    Just [ ("type", Encode.string "Exit") ]
                 MoveLeft ->
                     Just [ ("type", Encode.string "Left") ]
                 MoveRight ->
