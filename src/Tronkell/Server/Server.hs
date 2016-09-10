@@ -182,8 +182,7 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
 
         processEvent' game' evCons clientId = do
           users    <- readMVar serverUsers
-          let nick  = PlayerNick . fromJust . userNick . fromJust . M.lookup clientId $ users
-              event = evCons nick
+          let event = evCons . PlayerId . getUserID $ clientId
           processEvent server game' event
 
 processEvent :: Server -> Maybe Game -> InputEvent -> IO (Maybe Game)
@@ -210,13 +209,14 @@ handleIncomingMessages server@Server{..} game = do
      Nothing -> False
      Just g'  -> Finished == gameStatus g'
 
-playersFromUsers :: M.Map UserID User -> M.Map PlayerNick Player
+playersFromUsers :: M.Map UserID User -> M.Map PlayerId Player
 playersFromUsers = foldl userToPlayer M.empty
   where
     userToPlayer players u =
       let nick   = PlayerNick . fromJust . userNick $ u
-          player = Player nick Alive (10,10) North []
-      in M.insert nick player players
+          pid    = PlayerId . getUserID . userId $ u
+          player = Player pid nick Alive (10,10) North []
+      in M.insert pid player players
 
 runGame :: Maybe Game -> InputEvent -> ([OutEvent], Maybe Game)
 runGame game event =
@@ -227,12 +227,12 @@ runGame game event =
 outEventToOutMessage :: M.Map UserID User -> OutEvent -> OutMessage
 outEventToOutMessage users event =
   case event of
-    Game.PlayerMoved nick coord orien -> Server.PlayerMoved (playerNickToUserId users nick) coord orien
-    Game.PlayerDied  nick coord       -> Server.PlayerDied  (playerNickToUserId users nick) coord
-    Game.GameEnded   nick             -> Server.GameEnded   (playerNickToUserId users <$> nick)
+    Game.PlayerMoved pid coord orien -> Server.PlayerMoved (playerIdToUserId pid) coord orien
+    Game.PlayerDied  pid coord       -> Server.PlayerDied  (playerIdToUserId pid) coord
+    Game.GameEnded   pid             -> Server.GameEnded   (playerIdToUserId <$> pid)
 
-playerNickToUserId :: M.Map UserID User -> PlayerNick -> UserID
-playerNickToUserId users nick = fst . M.elemAt 0 . M.filter (\u -> Just nick == (PlayerNick <$> userNick u)) $ users
+playerIdToUserId :: PlayerId -> UserID
+playerIdToUserId = UserID . getPlayerId
 
 getUserId :: InMessage -> UserID
 getUserId msg =

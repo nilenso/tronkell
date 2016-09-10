@@ -28,12 +28,16 @@ instance ToJSON GT.GameConfig where
 instance ToJSON PlayerNick where
   toJSON (PlayerNick nick) = A.String nick
 
+instance ToJSON PlayerId where
+  toJSON = A.Number . fromInteger . toInteger . getPlayerId
+
 instance ToJSON PlayerStatus where
   toJSON = A.String . Text.pack . show
 
 instance ToJSON Player where
-  toJSON (Player nick status coord orient trail) =
-    A.object [ "nick"        .= nick
+  toJSON (Player pid nick status coord orient trail) =
+    A.object [ "id"          .= pid
+             , "nick"        .= nick
              , "status"      .= status
              , "coordinate"  .= coord
              , "orientation" .= orient
