@@ -80,7 +80,7 @@ instance FromJSON JsonInMessage where
   parseJSON (A.Object v) = do
     objType <- v .: "type"
     case objType of
-      "Ready"  -> return PlayerJoined
+      "Ready"  -> return PlayerReady
       "Exit"   -> return PlayerExit
       "Left"   -> return PlayerTurnLeft
       "Right"  -> return PlayerTurnRight

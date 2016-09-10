@@ -7,10 +7,11 @@ import Control.Concurrent (MVar, Chan)
 import qualified Data.Map as M
 import qualified Data.Text as T
 
+type NetworkChans = (Chan InMessage, Chan (UserID, OutMessage))
+
 data Server = Server { serverGameConfig :: Game.GameConfig
-                     , serverLastUserId :: MVar UserID
                      , serverUsers      :: MVar (M.Map UserID User)
-                     , networkChan      :: Chan InMessage
+                     , networkChans     :: NetworkChans
                      , serverChan       :: TChan InMessage
                      , clientsChan      :: Chan OutMessage
                      , internalChan     :: Chan ServerSignals

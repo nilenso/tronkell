@@ -6,4 +6,4 @@
 - PlayerNick feels unwieldly for a protocol, use an ID instead or in addition.
 
 ## Implementation todo
-- Stop the GameEngine thread after Game finishes.
+- Ability to change playernick at any point of time.

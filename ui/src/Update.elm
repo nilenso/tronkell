@@ -47,8 +47,8 @@ webSocketSend s = Debug.log s Cmd.none
 readyCmds : Maybe GP.PlayerName -> Cmd Msg
 readyCmds pn =
     case pn of
-        Just p -> Cmd.batch [ sendServerMsg PlayerReady
-                            , sendServerMsg (PlayerName p) ]
+        Just p -> Cmd.batch [ sendServerMsg (PlayerName p)
+                            , sendServerMsg PlayerReady ]
         Nothing -> Cmd.none
 
 gridWidth = 50
