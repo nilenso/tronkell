@@ -10,6 +10,7 @@ import qualified Data.Aeson as A
 import Data.ByteString.Lazy.Char8
 import Control.Exception (handle, SomeException(..))
 import Control.Monad (forever, when)
+import Debug.Trace
 
 import qualified Tronkell.Server.Types as ST
 import qualified Tronkell.Data.Parse as TP
@@ -46,7 +47,7 @@ websocketHandler uIdGen (inChan, clientSpecificOutChan) outChan pendingConnectio
     json <- toByteString <$> WS.receiveDataMessage conn
     let msg = A.eitherDecode' json
     case msg :: Either String TP.JsonInMessage of
-      Left _  -> return ()
+      Left e  -> traceShow e $ return ()
       Right m -> Con.writeChan inChan (m userId)
 
   Con.killThread writeThread
