@@ -60,6 +60,6 @@ colorOfCell cell =
     case cell.ctype of
         EmptyCellType    -> Color.grey
         PlayerCellType p -> if p.alive
-                            then p.color
+                            then Color.green
                             else Color.red
         TrailCellType c -> c

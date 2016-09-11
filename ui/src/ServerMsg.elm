@@ -13,7 +13,7 @@ import Color exposing (Color)
 import String
 
 wsserver = "ws://localhost:8331"
-playerColors = List.append [Color.yellow, Color.blue, Color.green] (List.repeat 100 Color.black)
+playerColors = List.append [Color.yellow, Color.blue, Color.brown] (List.repeat 100 Color.black)
 
 listenServerMsg = WebSocket.listen wsserver (decodeMsg playerColors)
 

@@ -32,6 +32,6 @@ gridToList : Grid -> List Cell
 gridToList grid =
     let playerToTrailCell p = List.map (Cell (TrailCellType p.player.color))  p.player.trail
     in List.concat [ List.map (Cell EmptyCellType) (ListE.lift2 (,) [0 .. grid.height - 1]  [0 .. grid.width - 1])
-                   , List.map (\p -> Cell (PlayerCellType p.player) p.pos) grid.playerCells
                    , List.concatMap playerToTrailCell grid.playerCells
+                   , List.map (\p -> Cell (PlayerCellType p.player) p.pos) grid.playerCells
                    ]
