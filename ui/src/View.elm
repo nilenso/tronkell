@@ -35,5 +35,10 @@ view model =
                          , button [onClick PlayerQuit] [text "Quit"]
                          ]
                      ]
+               -- debugging
+               , div []
+                     [ div [] [ text "my-id: ", text (toString model.myId) ]
+                     , div [] [ text "name: " , text (toString model.nick) ]
+                     ]
                ]
              ])

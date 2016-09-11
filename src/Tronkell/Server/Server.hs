@@ -99,7 +99,8 @@ cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
 
 playClient :: UserID -> TChan InMessage -> Server -> IO ()
 playClient clientId inChan Server{..} = do
-    -- because every client wants same copy of the message, duplicate channel.
+  -- because every client wants same copy of the message, duplicate channel.
+  -- no one should write in this thread to outClientChan ; write to clientSpecificOutChan
   outClientChan <- dupChan clientsChan
   writeChan outClientChan $ ServerMsg "Waiting for other players to start the game...!!!"
 
@@ -107,6 +108,9 @@ playClient clientId inChan Server{..} = do
   writer <- forkIO $ forever $ do
     outMsg <- readChan outClientChan
     writeChan clientSpecificOutChan (clientId, outMsg)
+
+  writeChan clientSpecificOutChan (clientId, ServerMsg "Waiting for other players to start the game...!!!")
+  writeChan clientSpecificOutChan (clientId, PlayerRegisterId clientId)
 
   clientInternalChan <- dupChan internalChan
 
@@ -116,10 +120,11 @@ playClient clientId inChan Server{..} = do
   -- block on ready-signal from server-thread to start the game.
   signal <- readChan clientInternalChan
   case signal of
-    GameReadySignal config players -> writeChan outClientChan $ GameReady config players
+    GameReadySignal config players -> writeChan clientSpecificOutChan (clientId, GameReady config players)
 
-  writeList2Chan outClientChan [ ServerMsg "Here.. you go!!!"
-                               , ServerMsg "Movements: type L for left , R for right, Q for quit... enjoy." ]
+  writeList2Chan clientSpecificOutChan
+    [ (clientId, ServerMsg "Here.. you go!!!")
+    , (clientId, ServerMsg "Movements: type L for left , R for right, Q for quit... enjoy.") ]
 
   -- flush all accumulated messages till now before allowing to play the game.
   _ <- readMsgs inChan
@@ -128,7 +133,7 @@ playClient clientId inChan Server{..} = do
     do
       msg <- atomically $ readTChan inChan
       case msg of
-        PlayerExit _ -> void $ writeChan outClientChan $ ServerMsg "Sayonara !!!"
+        PlayerExit _ -> void $ writeChan clientSpecificOutChan (clientId, ServerMsg "Sayonara !!!")
         _ -> atomically (writeTChan serverChan msg) >> loop
 
   killThread writer
@@ -223,7 +228,7 @@ runGame game event =
     Just g  -> Just <$> Engine.runEngine Engine.gameEngine g [event]
 
 outEventToOutMessage :: M.Map UserID User -> OutEvent -> OutMessage
-outEventToOutMessage users event =
+outEventToOutMessage _ event =
   case event of
     Game.PlayerMoved pid coord orien -> Server.PlayerMoved (playerIdToUserId pid) coord orien
     Game.PlayerDied  pid coord       -> Server.PlayerDied  (playerIdToUserId pid) coord

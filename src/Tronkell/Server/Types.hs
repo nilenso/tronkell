@@ -37,6 +37,7 @@ data InMessage = PlayerJoined    UserID -- should not these be UserJoined ?
                deriving (Show)
 
 data OutMessage = GameReady   Game.GameConfig [Game.Player]
+                | PlayerRegisterId UserID
                 | PlayerMoved UserID Coordinate Orientation
                 | PlayerDied  UserID Coordinate
                 | GameEnded   (Maybe UserID)

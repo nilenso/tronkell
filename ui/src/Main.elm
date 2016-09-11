@@ -17,4 +17,4 @@ main =
         }
 
 init : (Model, Cmd Msg)
-init = (Model Nothing Nothing Nothing, Cmd.none)
+init = (Model Nothing Nothing Nothing Nothing, Cmd.none)

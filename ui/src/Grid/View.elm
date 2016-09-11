@@ -3,7 +3,7 @@ module Grid.View exposing (..)
 import Grid.Model exposing (..)
 import Grid.Message exposing (..)
 
-import Html exposing (div, Html)
+import Html exposing (div, text, Html)
 import Collage as C
 import Color exposing (Color)
 import Element as E
@@ -18,10 +18,16 @@ type alias Boundary = (Float, Float)
 
 view : Grid -> Html Msg
 view grid =
-    gridToList grid
-    |> List.map (renderCell (grid.width, grid.height))
-    |> C.collage (round (grid.width * cellWidth)) (round (grid.height * cellHeight))
-    |> E.toHtml
+    div []
+        [ gridToList grid
+           |> List.map (renderCell (grid.width, grid.height))
+           |> C.collage (round (grid.width * cellWidth)) (round (grid.height * cellHeight))
+           |> E.toHtml
+
+        -- debugging..
+        , div []
+              ( List.map playerInfoView grid.playerCells )
+        ]
 
 renderCell : Boundary -> Cell -> C.Form
 renderCell b cell =
@@ -29,6 +35,11 @@ renderCell b cell =
     in cellStructure cell
         |> fillCell cell
         |> C.move (cx * cellWidth, cy * cellHeight)
+
+playerInfoView : PlayerCell -> Html Msg
+playerInfoView cell =
+    div []
+        [ text (toString cell.player) ]
 
 bringToCorner : Boundary -> (Float, Float) -> (Float, Float)
 bringToCorner (w, h) (x, y) = (x - w / 2 + 0.5, y - h / 2 + 0.5)

@@ -15,5 +15,7 @@ keyToMsg : KeyCode -> Msg
 keyToMsg keycode =
     case keycode of
         37 -> MoveLeft
+        38 -> MoveUp
         39 -> MoveRight
+        40 -> MoveDown
         _  -> NoOp

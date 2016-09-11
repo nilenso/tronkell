@@ -18,10 +18,13 @@ type Msg =
    | PlayerQuit
    | MoveLeft
    | MoveRight
+   | MoveUp
+   | MoveDown
    -- From Server:
    -- Game State Related
    | GameReady GameWidth GameHeight PlayerCells
    | GameEnded (Maybe GP.PlayerId)
+   | PlayerRegisterId GP.PlayerId
    | ServerMsg String
    -- Game Related
    | GridMsg GMsg.Msg

@@ -27,14 +27,21 @@ decodeMsg colors json =
                 "GameReady"  ->
                     Decode.object2 (\ (w, h) ps -> GameReady w h (List.map2 changeColorOfPlayerCell ps colors))
                         ("config" := decodeConfig) ("players" := decodePlayers colors)
+
                 "GameEnded"   -> Decode.object1 GameEnded ("winnerId" := nullOr Decode.int)
+
                 "PlayerDied"  -> Decode.object1 (\id -> GridMsg (GMsg.PlayerDied id)) ("id" := Decode.int)
+
                 "PlayerMoved" ->
                     Decode.object3 (\id coordinate orientation ->
                                         GridMsg (GMsg.PlayerMoved id coordinate orientation))
                         ("id" := Decode.int) ("coordinate" := decodePosition) ("orientation" := decodeOrientation)
-                "ServerMsg"   -> Decode.object1 ServerMsg ("message" := Decode.string)
-                _             -> Decode.succeed NoOp
+
+                "ServerMsg"        -> Decode.object1 ServerMsg ("message" := Decode.string)
+
+                "PlayerRegisterId" -> Decode.object1 PlayerRegisterId ("id" := Decode.int)
+
+                _                  -> Decode.succeed NoOp
         decoder = Decode.andThen ("type" := Decode.string ) decodeMsg
         res     = Decode.decodeString decoder (Debug.log "received json: " json)
     in case Debug.log "servermsg: " res of

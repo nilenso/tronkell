@@ -21,12 +21,14 @@ update msg model =
         RegisterNick     -> ( model, registerNickCmd model.nick )
         PlayerReady      -> ( model, sendServerMsg PlayerReady )
         PlayerQuit       -> ( model, sendServerMsg PlayerQuit )
-        -- todo : send only when game is playing.
-        MoveLeft         -> ( model, sendServerMsg MoveLeft )
-        MoveRight        -> ( model, sendServerMsg MoveRight )
+        MoveLeft         -> ( model, getMoveCmd model MoveLeft )
+        MoveRight        -> ( model, getMoveCmd model MoveRight )
+        MoveUp           -> ( model, getMoveCmd model MoveUp )
+        MoveDown         -> ( model, getMoveCmd model MoveDown )
 
         GameReady w h ps -> ( { model | grid = Just (GM.init w h ps) }, Cmd.none)
         GameEnded wId    -> ( { model | winnerId = wId }, Cmd.none )
+        PlayerRegisterId pid -> ( { model | myId = Just pid }, Cmd.none )
         ServerMsg msg    -> ( model, Cmd.none )
 
         GridMsg m        ->
@@ -45,3 +47,35 @@ registerNickCmd nick =
         Just p -> if String.length p > 0
                   then sendServerMsg (PlayerName p)
                   else Cmd.none
+
+getMoveCmd : Model -> Msg -> Cmd Msg
+getMoveCmd model msg =
+    let getMoveCmd' orien msg =
+          let nextMove =
+            case (orien, msg) of
+                (GP.North, MoveLeft)  -> Just MoveLeft
+                (GP.North, MoveRight) -> Just MoveRight
+                (GP.North, _)         -> Nothing
+
+                (GP.South, MoveLeft)  -> Just MoveLeft
+                (GP.South, MoveRight) -> Just MoveRight
+                (GP.South, _)         -> Nothing
+
+                (GP.East, MoveUp)     -> Just MoveRight
+                (GP.East, MoveDown)   -> Just MoveLeft
+                (GP.East, _)          -> Nothing
+
+                (GP.West, MoveUp)     -> Just MoveLeft
+                (GP.West, MoveDown)   -> Just MoveRight
+                (GP.West, _)          -> Nothing
+          in case nextMove of
+                 Nothing -> Cmd.none
+                 Just move -> sendServerMsg move
+    in case (model.myId, model.grid) of
+           (Just pid, Just grid) ->
+               let mes = List.filter (\pc -> pc.player.id == pid) grid.playerCells
+               in case mes of
+                      me::[] -> getMoveCmd' me.player.orientation msg
+                      _      -> Cmd.none -- some serious error msg.
+
+           _ -> Cmd.none

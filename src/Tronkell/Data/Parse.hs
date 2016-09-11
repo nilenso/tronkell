@@ -76,6 +76,10 @@ instance A.ToJSON OutMessage where
         A.object [ "type" .= A.String "ServerMsg"
                  , "message" .= m
                  ]
+      PlayerRegisterId uId ->
+        A.object [ "type" .= A.String "PlayerRegisterId"
+                 , "id"   .= uId
+                 ]
 
 type JsonInMessage = UserID -> InMessage
 
