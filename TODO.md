@@ -6,8 +6,8 @@
 - PlayerNick feels unwieldly for a protocol, use an ID instead or in addition.
 
 ## Implementation todo
-- Server grid starts from top-left (0,0) .. client grid is bottom-left (0,0)
 - Have a triangle in ui for player to show his/her orientation.
 - Add tcp socket in server.
+- Server should allow next game to play after first game ends.
+  - currently need to start the server.
 - Ability to change playernick at any point of time.
-- receiving bad data from server regularly :  { slice = <function:slice>, size = 33, type = "" }

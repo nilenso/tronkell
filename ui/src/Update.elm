@@ -56,17 +56,18 @@ getMoveCmd model msg =
                 (GP.North, MoveRight) -> Just MoveRight
                 (GP.North, _)         -> Nothing
 
-                (GP.South, MoveLeft)  -> Just MoveLeft
-                (GP.South, MoveRight) -> Just MoveRight
+                (GP.South, MoveLeft)  -> Just MoveRight
+                (GP.South, MoveRight) -> Just MoveLeft
                 (GP.South, _)         -> Nothing
 
-                (GP.East, MoveUp)     -> Just MoveRight
-                (GP.East, MoveDown)   -> Just MoveLeft
+                (GP.East, MoveUp)     -> Just MoveLeft
+                (GP.East, MoveDown)   -> Just MoveRight
                 (GP.East, _)          -> Nothing
 
-                (GP.West, MoveUp)     -> Just MoveLeft
-                (GP.West, MoveDown)   -> Just MoveRight
+                (GP.West, MoveUp)     -> Just MoveRight
+                (GP.West, MoveDown)   -> Just MoveLeft
                 (GP.West, _)          -> Nothing
+              log_ = Debug.log "orien, msg, nextMove : " (orien, msg, nextMove)
           in case nextMove of
                  Nothing -> Cmd.none
                  Just move -> sendServerMsg move

@@ -42,7 +42,7 @@ playerInfoView cell =
         [ text (toString cell.player) ]
 
 bringToCorner : Boundary -> (Float, Float) -> (Float, Float)
-bringToCorner (w, h) (x, y) = (x - w / 2 + 0.5, y - h / 2 + 0.5)
+bringToCorner (w, h) (x, y) = (x - w / 2 + 0.5, (h - y) - h / 2 + 0.5)
 
 cellStructure : Cell -> C.Shape
 cellStructure cell =
