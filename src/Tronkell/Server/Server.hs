@@ -17,6 +17,7 @@ import Data.Maybe (fromJust)
 import Control.Monad (void, foldM, forever, when)
 import Control.Monad.Fix (fix)
 import qualified Data.Map as M
+import qualified Data.List as L (foldl')
 
 startServer :: Game.GameConfig -> IO ()
 startServer gConfig = do
@@ -32,7 +33,9 @@ startServer gConfig = do
       server = Server gConfig playersVar networkChans serverChan clientsChan internalChan
 
   -- start game server : one game at a time.
-  gameThread <- forkIO $ forever $ gameEngineThread server Nothing
+  gameThread <- forkIO $ forever $ do
+    moveAllPlayersToWaiting (serverUsers server)
+    gameEngineThread server Nothing
 
   -- start websockets
   wsThread <- forkIO $ W.start firstUId networkChans clientsChan
@@ -40,6 +43,10 @@ startServer gConfig = do
   clientsLoop server M.empty
   killThread gameThread
   killThread wsThread
+
+  where
+    moveAllPlayersToWaiting serverUsers =
+      modifyMVar_ serverUsers (return . M.map (\u -> u { userState = Waiting }))
 
 clientsLoop :: Server -> M.Map UserID (TChan InMessage) -> IO ()
 clientsLoop server@Server{..} userChans = do
@@ -49,7 +56,7 @@ clientsLoop server@Server{..} userChans = do
     PlayerJoined uId -> do
       userChan <- atomically newTChan
       let userChans' = M.insert uId userChan userChans -- check if uId already not there
-      forkIO $ runClient uId userChan server
+      void $ forkIO $ runClient uId userChan server -- remove useChan after runClient returns.
       clientsLoop server userChans'
     _ -> do
       let uId = getUserId msg
@@ -123,7 +130,7 @@ playClient clientId inChan Server{..} = do
   -- block on ready-signal from server-thread to start the game.
   signal <- readChan clientInternalChan
   case signal of
-    GameReadySignal config players -> writeChan clientSpecificOutChan (clientId, GameReady config players)
+    GameReadySignal config players -> return ()
 
   writeList2Chan clientSpecificOutChan
     [ (clientId, ServerMsg "Here.. you go!!!")
@@ -165,7 +172,10 @@ onUserExit :: UserID -> MVar (M.Map UserID User) -> IO ()
 onUserExit clientId serverUsers = modifyMVar_ serverUsers (return . M.delete clientId)
 
 processMessages :: Server -> Maybe Game -> [InMessage] -> IO (Maybe Game)
-processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game inMsgs
+processMessages server@Server{..} game inMsgs = do
+  game' <- foldM threadGameOverEvent game inMsgs
+  moveAllDeadPlayersToWaiting game'
+  return game'
   where threadGameOverEvent g' inMsg = case inMsg of
           PlayerJoined _           -> return game
           PlayerReady clientId     -> processPlayerReady clientId
@@ -175,12 +185,13 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
             onUserExit clientId serverUsers
             processEvent' g' PlayerQuit clientId
           PlayerExit      clientId -> do
-            modifyMVar_ serverUsers (return . M.adjust (\u -> u { userState = Waiting }) clientId)
             processEvent' g' PlayerQuit clientId
           PlayerName _ _           -> return game
 
         processPlayerReady clientId = case game of
+          -- do not disturb already running game.
           Just game' -> return $ Just game'
+          -- start a new game.
           Nothing -> do
             ready <- modifyMVar serverUsers $ updateUserReady clientId
             -- if all users are ready, start the game.
@@ -188,7 +199,8 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
             then do
               users <- readMVar serverUsers
               let players = playersFromUsers users
-              writeChan internalChan (GameReadySignal serverGameConfig (M.elems players))
+              writeChan internalChan $ GameReadySignal serverGameConfig (M.elems players)
+              writeChan clientsChan  $ GameReady serverGameConfig (M.elems players)
               return $ Just $ Game Nothing players InProgress serverGameConfig
             else
               return Nothing
@@ -196,6 +208,16 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
         processEvent' game' evCons clientId = do
           let event = evCons . PlayerId . getUserID $ clientId
           processEvent server game' event
+
+        moveAllDeadPlayersToWaiting maybeGame =
+          case maybeGame of -- try maybe
+            Nothing -> return ()
+            Just g' ->
+              let deadUserIds = map playerIdToUserId $ Engine.deadPlayers g'
+              in modifyMVar_ serverUsers $ \users ->
+                   return $ L.foldl' (\newUsers deadUId ->
+                                         M.adjust (\u -> u { userState = Waiting }) deadUId newUsers)
+                                     users deadUserIds
 
 processEvent :: Server -> Maybe Game -> InputEvent -> IO (Maybe Game)
 processEvent Server{..} g event = do
@@ -255,3 +277,4 @@ getUserId msg =
     PlayerTurnLeft  uId -> uId
     PlayerTurnRight uId -> uId
     PlayerName      uId _ -> uId
+    UserExit        uId -> uId

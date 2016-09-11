@@ -132,3 +132,6 @@ turn getNewOrientation nick = do
 
 orientations :: [Orientation]
 orientations = [minBound..maxBound]
+
+deadPlayers :: Game -> [PlayerId]
+deadPlayers = Map.keys . Map.filter ((== Dead) . playerStatus) . gamePlayers
