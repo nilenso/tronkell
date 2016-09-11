@@ -18,6 +18,7 @@ import Control.Monad (void, foldM, forever, when)
 import Control.Monad.Fix (fix)
 import qualified Data.Map as M
 import qualified Data.List as L (foldl')
+import System.Random
 
 startServer :: Game.GameConfig -> IO ()
 startServer gConfig = do
@@ -130,7 +131,7 @@ playClient clientId inChan Server{..} = do
   -- block on ready-signal from server-thread to start the game.
   signal <- readChan clientInternalChan
   case signal of
-    GameReadySignal config players -> return ()
+    GameReadySignal _ _ -> return ()
 
   writeList2Chan clientSpecificOutChan
     [ (clientId, ServerMsg "Here.. you go!!!")
@@ -198,7 +199,7 @@ processMessages server@Server{..} game inMsgs = do
             if ready
             then do
               users <- readMVar serverUsers
-              let players = playersFromUsers users
+              players <- playersFromUsers serverGameConfig users
               writeChan internalChan $ GameReadySignal serverGameConfig (M.elems players)
               writeChan clientsChan  $ GameReady serverGameConfig (M.elems players)
               return $ Just $ Game Nothing players InProgress serverGameConfig
@@ -243,14 +244,23 @@ gameEngineThread server@Server{..} game = do
      Nothing -> False
      Just g'  -> Finished == gameStatus g'
 
-playersFromUsers :: M.Map UserID User -> M.Map PlayerId Player
-playersFromUsers = foldl userToPlayer M.empty
+playersFromUsers :: GameConfig -> M.Map UserID User -> IO (M.Map PlayerId Player)
+playersFromUsers GameConfig{..} = foldM userToPlayer M.empty
   where
-    userToPlayer players u =
+    userToPlayer players u = do
       let nick   = PlayerNick . fromJust . userNick $ u
           pid    = PlayerId . getUserID . userId $ u
-          player = Player pid nick Alive (10,10) North []
-      in M.insert pid player players
+          (wStart, wEnd) = toRandomRange gameWidth
+          (hStart, hEnd) = toRandomRange gameHeight
+      x <- getStdRandom (randomR (wStart, wEnd))
+      y <- getStdRandom (randomR (hStart, hEnd))
+      orien <- getStdRandom random
+
+      let player = Player pid nick Alive (x, y) orien []
+      return $ M.insert pid player players
+
+    toRandomRange i = (round $ (fromIntegral i :: Double) / 4,
+                       round $ (fromIntegral i :: Double) / 4 * 3)
 
 runGame :: Maybe Game -> InputEvent -> ([OutEvent], Maybe Game)
 runGame game event =
@@ -278,3 +288,20 @@ getUserId msg =
     PlayerTurnRight uId -> uId
     PlayerName      uId _ -> uId
     UserExit        uId -> uId
+
+instance Random Orientation where
+  random gen =
+    randomR (North, West) gen
+  randomR (a, b) gen =
+    let (n, gen') = next gen
+        aInt = fromEnum a
+        bInt = (fromEnum b)
+        diffAB = bInt - aInt + 1
+        n' = (n `rem` diffAB) + aInt
+        orien = case n' of
+                  0 -> North
+                  1 -> East
+                  2 -> South
+                  3 -> West
+                  _ -> North
+    in (orien, gen')

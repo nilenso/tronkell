@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  ghc-options:         -Wall -fwarn-incomplete-uni-patterns
+  ghc-options:         -Wall -fwarn-incomplete-uni-patterns -fno-warn-unused-do-bind -fno-warn-orphans
   exposed-modules:     Tronkell.Types
                      , Tronkell.Game.Types
                      , Tronkell.Game.Engine
@@ -36,6 +36,7 @@ library
                      , warp
                      , wai
                      , wai-app-static
+                     , random
   default-language:    Haskell2010
 
 executable tronkell-exe
