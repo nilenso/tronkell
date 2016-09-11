@@ -50,6 +50,7 @@ websocketHandler uIdGen (inChan, clientSpecificOutChan) outChan pendingConnectio
       Left e  -> traceShow e $ return ()
       Right m -> Con.writeChan inChan (m userId)
 
+  Con.writeChan inChan $ ST.UserExit userId
   Con.killThread writeThread
   Con.killThread clientSpecificWriteThread
 

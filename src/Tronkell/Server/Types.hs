@@ -30,6 +30,8 @@ data UserStatus = Waiting | Ready
 
 data InMessage = PlayerJoined    UserID -- should not these be UserJoined ?
                | PlayerReady     UserID
+               -- when connection is closed.
+               | UserExit      UserID
                | PlayerExit      UserID
                | PlayerTurnLeft  UserID
                | PlayerTurnRight UserID

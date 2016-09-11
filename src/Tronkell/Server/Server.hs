@@ -14,7 +14,7 @@ import Control.Concurrent.STM
 import qualified Data.Text as T
 import Data.Maybe (fromJust)
 
-import Control.Monad (void, foldM, forever)
+import Control.Monad (void, foldM, forever, when)
 import Control.Monad.Fix (fix)
 import qualified Data.Map as M
 
@@ -85,15 +85,27 @@ runClient uId clientChan server@Server{..} = do
 
       if failedToAdd
       then runClient uId clientChan server
-      else do atomically $ writeTChan serverChan $ PlayerJoined uId
-              writeChan clientSpecificOutChan $ (uId, ServerMsg $ "Hi.. " ++ T.unpack (fromJust nick) ++ ".. Type ready when you are ready to play.. quit to quit.")
-              fix $ \loop -> do m <- atomically $ readTChan clientChan
-                                case m of
-                                 PlayerReady _ -> playClient uId clientChan server
-                                 PlayerExit  _ -> atomically $ writeTChan serverChan $ PlayerExit uId
-                                 _ -> loop
+      else do
+         atomically $ writeTChan serverChan $ PlayerJoined uId
+         waitForPlayerReady clientSpecificOutChan nick
   where
     isNickTaken users nick = any (\u -> nick == userNick u) users
+
+    waitForPlayerReady clientSpecificOutChan nick = fix $ \ loop -> do
+      writeChan clientSpecificOutChan $ (uId, ServerMsg $ "Hi.. " ++ T.unpack (fromJust nick) ++ ".. send \"ready\" when you are ready to play..")
+      m <- atomically $ readTChan clientChan
+      case m of
+        PlayerReady _ -> do
+          playClient uId clientChan server
+          exists <- userExistsNow serverUsers
+          when exists $ loop
+        UserExit _ -> onUserExit uId serverUsers
+        _ -> loop
+
+    userExistsNow users = do
+      currentUsers <- readMVar users
+      return (M.member uId currentUsers)
+
 
 cleanString :: String -> String
 cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
@@ -106,7 +118,6 @@ playClient clientId inChan Server{..} = do
   writeChan clientSpecificOutChan (clientId, ServerMsg "Waiting for other players to start the game...!!!")
   writeChan clientSpecificOutChan (clientId, PlayerRegisterId clientId)
 
-  -- otherwise gameready msg for second-client joining is lost.
   atomically $ writeTChan serverChan $ PlayerReady clientId
 
   -- block on ready-signal from server-thread to start the game.
@@ -126,6 +137,7 @@ playClient clientId inChan Server{..} = do
       msg <- atomically $ readTChan inChan
       case msg of
         PlayerExit _ -> void $ writeChan clientSpecificOutChan (clientId, ServerMsg "Sayonara !!!")
+        UserExit   _ -> atomically $ writeTChan serverChan msg
         _ -> atomically (writeTChan serverChan msg) >> loop
 
   atomically $ writeTChan serverChan (PlayerExit clientId)
@@ -149,6 +161,9 @@ readMsgs channel = atomically $ readAll channel
 oneSecond :: Int
 oneSecond = 1000000
 
+onUserExit :: UserID -> MVar (M.Map UserID User) -> IO ()
+onUserExit clientId serverUsers = modifyMVar_ serverUsers (return . M.delete clientId)
+
 processMessages :: Server -> Maybe Game -> [InMessage] -> IO (Maybe Game)
 processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game inMsgs
   where threadGameOverEvent g' inMsg = case inMsg of
@@ -156,8 +171,11 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
           PlayerReady clientId     -> processPlayerReady clientId
           PlayerTurnLeft  clientId -> processEvent' g' TurnLeft clientId
           PlayerTurnRight clientId -> processEvent' g' TurnRight clientId
+          UserExit        clientId -> do
+            onUserExit clientId serverUsers
+            processEvent' g' PlayerQuit clientId
           PlayerExit      clientId -> do
-            modifyMVar_ serverUsers (return . M.delete clientId)
+            modifyMVar_ serverUsers (return . M.adjust (\u -> u { userState = Waiting }) clientId)
             processEvent' g' PlayerQuit clientId
           PlayerName _ _           -> return game
 
