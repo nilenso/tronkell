@@ -6,7 +6,6 @@
 - PlayerNick feels unwieldly for a protocol, use an ID instead or in addition.
 
 ## Implementation todo
-- Add tcp socket in server.
 - Basic collision
 - Ability to change playernick at any point of time.
 - View : top line is getting cut. :(

@@ -23,6 +23,8 @@ library
                      , Tronkell.Server.Server
                      , Tronkell.Data.Parse
                      , Tronkell.Network.Websockets
+                     , Tronkell.Network.TcpSockets
+                     , Tronkell.Network.Utils
   build-depends:       base >= 4.7 && < 5
                      , mtl
                      , containers

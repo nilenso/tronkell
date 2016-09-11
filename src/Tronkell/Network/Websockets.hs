@@ -14,6 +14,7 @@ import Debug.Trace
 
 import qualified Tronkell.Server.Types as ST
 import qualified Tronkell.Data.Parse as TP
+import qualified Tronkell.Network.Utils as NU (nextUserID)
 
 start :: Con.MVar ST.UserID -> ST.NetworkChans -> Con.Chan ST.OutMessage -> IO ()
 start uIdGen chans outChan = Warp.runSettings
@@ -32,7 +33,7 @@ websocketHandler uIdGen (inChan, clientSpecificOutChan) outChan pendingConnectio
   dupClientSpecificOutChan <- Con.dupChan clientSpecificOutChan
 
   -- get from some mvar passed from server to here.
-  userId <- nextUserID uIdGen
+  userId <- NU.nextUserID uIdGen
   Con.writeChan inChan $ ST.PlayerJoined userId
 
   writeThread <- Con.forkIO $ forever $ do
@@ -58,11 +59,3 @@ toByteString :: WS.DataMessage -> ByteString
 toByteString d = case d of
   WS.Binary b -> b
   WS.Text   t -> t
-
-nextUserID :: Con.MVar ST.UserID -> IO (ST.UserID)
-nextUserID userId =
-  Con.modifyMVar userId $ \uId ->
-      let
-        next = ST.UserID $ 1 + ST.getUserID uId
-      in
-        return (next, next)

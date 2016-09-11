@@ -4,9 +4,10 @@ module Tronkell.Server.Server where
 
 import Tronkell.Server.Types as Server
 import Tronkell.Game.Types as Game
-import Tronkell.Types
+import Tronkell.Types()
 import Tronkell.Game.Engine as Engine
-import Tronkell.Network.Websockets as W
+import qualified Tronkell.Network.Websockets as W
+import qualified Tronkell.Network.TcpSockets as Tcp
 
 import Control.Concurrent
 import Control.Concurrent.STM
@@ -38,12 +39,14 @@ startServer gConfig = do
     moveAllPlayersToWaiting (serverUsers server)
     gameEngineThread server Nothing
 
-  -- start websockets
-  wsThread <- forkIO $ W.start firstUId networkChans clientsChan
+  -- start network
+  wsThread  <- forkIO $ W.start firstUId networkChans clientsChan
+  tcpThread <- forkIO $ Tcp.start firstUId networkChans clientsChan
 
   clientsLoop server M.empty
   killThread gameThread
   killThread wsThread
+  killThread tcpThread
 
   where
     moveAllPlayersToWaiting serverUsers =
@@ -65,12 +68,6 @@ clientsLoop server@Server{..} userChans = do
       maybe (return ()) (\c -> atomically $ writeTChan c msg) userChan
       clientsLoop server userChans
 
--- tcpMainLoop :: Server -> IO ()
--- tcpMainLoop server@Server{..} = do
---   (clientHdl, _, _) <- accept serverSocket
---   hSetBuffering clientHdl NoBuffering
---   forkIO $ runClient clientHdl server
---   tcpMainLoop server
 
 runClient :: UserID -> TChan InMessage -> Server -> IO ()
 runClient uId clientChan server@Server{..} = do
@@ -114,9 +111,6 @@ runClient uId clientChan server@Server{..} = do
       currentUsers <- readMVar users
       return (M.member uId currentUsers)
 
-
-cleanString :: String -> String
-cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
 
 playClient :: UserID -> TChan InMessage -> Server -> IO ()
 playClient clientId inChan Server{..} = do
@@ -288,20 +282,3 @@ getUserId msg =
     PlayerTurnRight uId -> uId
     PlayerName      uId _ -> uId
     UserExit        uId -> uId
-
-instance Random Orientation where
-  random gen =
-    randomR (North, West) gen
-  randomR (a, b) gen =
-    let (n, gen') = next gen
-        aInt = fromEnum a
-        bInt = (fromEnum b)
-        diffAB = bInt - aInt + 1
-        n' = (n `rem` diffAB) + aInt
-        orien = case n' of
-                  0 -> North
-                  1 -> East
-                  2 -> South
-                  3 -> West
-                  _ -> North
-    in (orien, gen')
