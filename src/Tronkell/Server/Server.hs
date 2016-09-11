@@ -14,7 +14,7 @@ import Control.Concurrent.STM
 import qualified Data.Text as T
 import Data.Maybe (fromJust)
 
-import Control.Monad (void, foldM)
+import Control.Monad (void, foldM, forever)
 import Control.Monad.Fix (fix)
 import qualified Data.Map as M
 
@@ -31,13 +31,15 @@ startServer gConfig = do
   let networkChans = (networkInChan, clientSpecificOutChan)
       server = Server gConfig playersVar networkChans serverChan clientsChan internalChan
 
-  -- start game server : wrong : server after game has started.
-  void $ forkIO $ void $ handleIncomingMessages server Nothing
+  -- start game server : one game at a time.
+  gameThread <- forkIO $ forever $ gameEngineThread server Nothing
 
   -- start websockets
-  void $ forkIO $ W.start firstUId networkChans clientsChan
+  wsThread <- forkIO $ W.start firstUId networkChans clientsChan
 
   clientsLoop server M.empty
+  killThread gameThread
+  killThread wsThread
 
 clientsLoop :: Server -> M.Map UserID (TChan InMessage) -> IO ()
 clientsLoop server@Server{..} userChans = do
@@ -185,8 +187,8 @@ processEvent Server{..} g event = do
   writeList2Chan clientsChan outMsgs
   return game'
 
-handleIncomingMessages :: Server -> Maybe Game -> IO Game
-handleIncomingMessages server@Server{..} game = do
+gameEngineThread :: Server -> Maybe Game -> IO Game
+gameEngineThread server@Server{..} game = do
   threadDelay . quot oneSecond . gameTicksPerSecond $ serverGameConfig
   inMsgs <- readMsgs serverChan
   game' <- processMessages server game inMsgs
@@ -194,7 +196,7 @@ handleIncomingMessages server@Server{..} game = do
 
   if isGameFinished game''
   then return . fromJust $ game''
-  else handleIncomingMessages server game''
+  else gameEngineThread server game''
 
   where
     isGameFinished g = case g of
