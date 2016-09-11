@@ -51,8 +51,7 @@ registerNickCmd nick =
 getMoveCmd : Model -> Msg -> Cmd Msg
 getMoveCmd model msg =
     let getMoveCmd' orien msg =
-          let nextMove =
-            case (orien, msg) of
+          let nextMove = case (orien, msg) of
                 (GP.North, MoveLeft)  -> Just MoveLeft
                 (GP.North, MoveRight) -> Just MoveRight
                 (GP.North, _)         -> Nothing

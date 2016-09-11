@@ -37,7 +37,7 @@ websocketHandler uIdGen (inChan, clientSpecificOutChan) outChan pendingConnectio
 
   writeThread <- Con.forkIO $ forever $ do
     msg <- Con.readChan dupOutChan
-    WS.sendDataMessage conn . WS.Binary . A.encode $ msg
+    WS.sendDataMessage conn . WS.Text . A.encode $ msg
 
   clientSpecificWriteThread <- Con.forkIO $ forever $ do
     (uId, msg) <- Con.readChan dupClientSpecificOutChan

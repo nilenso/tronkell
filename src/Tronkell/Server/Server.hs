@@ -14,7 +14,7 @@ import Control.Concurrent.STM
 import qualified Data.Text as T
 import Data.Maybe (fromJust)
 
-import Control.Monad (void, foldM, forever)
+import Control.Monad (void, foldM)
 import Control.Monad.Fix (fix)
 import qualified Data.Map as M
 
@@ -35,8 +35,7 @@ startServer gConfig = do
   void $ forkIO $ void $ handleIncomingMessages server Nothing
 
   -- start websockets
-  dupClientsChanWS <- dupChan clientsChan
-  void $ forkIO $ W.start firstUId networkChans dupClientsChanWS
+  void $ forkIO $ W.start firstUId networkChans clientsChan
 
   clientsLoop server M.empty
 
@@ -99,22 +98,13 @@ cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
 
 playClient :: UserID -> TChan InMessage -> Server -> IO ()
 playClient clientId inChan Server{..} = do
-  -- because every client wants same copy of the message, duplicate channel.
-  -- no one should write in this thread to outClientChan ; write to clientSpecificOutChan
-  outClientChan <- dupChan clientsChan
-  writeChan outClientChan $ ServerMsg "Waiting for other players to start the game...!!!"
-
   let (_, clientSpecificOutChan) = networkChans
-  writer <- forkIO $ forever $ do
-    outMsg <- readChan outClientChan
-    writeChan clientSpecificOutChan (clientId, outMsg)
+  clientInternalChan <- dupChan internalChan
 
   writeChan clientSpecificOutChan (clientId, ServerMsg "Waiting for other players to start the game...!!!")
   writeChan clientSpecificOutChan (clientId, PlayerRegisterId clientId)
 
-  clientInternalChan <- dupChan internalChan
-
-  -- otherwise gameready msg for this second client joining is lost.
+  -- otherwise gameready msg for second-client joining is lost.
   atomically $ writeTChan serverChan $ PlayerReady clientId
 
   -- block on ready-signal from server-thread to start the game.
@@ -136,7 +126,6 @@ playClient clientId inChan Server{..} = do
         PlayerExit _ -> void $ writeChan clientSpecificOutChan (clientId, ServerMsg "Sayonara !!!")
         _ -> atomically (writeTChan serverChan msg) >> loop
 
-  killThread writer
   atomically $ writeTChan serverChan (PlayerExit clientId)
 
 -- Adds user to user list and returns whether all users are ready
