@@ -40,20 +40,20 @@ startServer gConfig = do
 
   clientsLoop server M.empty
 
-clientsLoop :: Server -> M.Map UserID (Chan InMessage) -> IO ()
+clientsLoop :: Server -> M.Map UserID (TChan InMessage) -> IO ()
 clientsLoop server@Server{..} userChans = do
   let (networkInChan, _) = networkChans
   msg <- readChan networkInChan
   case msg of
     PlayerJoined uId -> do
-      userChan <- newChan
+      userChan <- atomically newTChan
       let userChans' = M.insert uId userChan userChans -- check if uId already not there
       forkIO $ runClient uId userChan server
       clientsLoop server userChans'
     _ -> do
       let uId = getUserId msg
           userChan = M.lookup uId userChans
-      maybe (return ()) (flip writeChan msg) userChan
+      maybe (return ()) (\c -> atomically $ writeTChan c msg) userChan
       clientsLoop server userChans
 
 -- tcpMainLoop :: Server -> IO ()
@@ -63,11 +63,11 @@ clientsLoop server@Server{..} userChans = do
 --   forkIO $ runClient clientHdl server
 --   tcpMainLoop server
 
-runClient :: UserID -> Chan InMessage -> Server -> IO ()
+runClient :: UserID -> TChan InMessage -> Server -> IO ()
 runClient uId clientChan server@Server{..} = do
   let (_, clientSpecificOutChan) = networkChans
   writeChan clientSpecificOutChan $ (uId, ServerMsg "Take a nick name : ")
-  msg <- readChan clientChan
+  msg <- atomically $ readTChan clientChan
   let nick = case msg of
                PlayerName _ name -> Just name
                _ -> Nothing
@@ -86,7 +86,7 @@ runClient uId clientChan server@Server{..} = do
       then runClient uId clientChan server
       else do atomically $ writeTChan serverChan $ PlayerJoined uId
               writeChan clientSpecificOutChan $ (uId, ServerMsg $ "Hi.. " ++ T.unpack (fromJust nick) ++ ".. Type ready when you are ready to play.. quit to quit.")
-              fix $ \loop -> do m <- readChan clientChan
+              fix $ \loop -> do m <- atomically $ readTChan clientChan
                                 case m of
                                  PlayerReady _ -> playClient uId clientChan server
                                  PlayerExit  _ -> atomically $ writeTChan serverChan $ PlayerExit uId
@@ -97,7 +97,7 @@ runClient uId clientChan server@Server{..} = do
 cleanString :: String -> String
 cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
 
-playClient :: UserID -> Chan InMessage -> Server -> IO ()
+playClient :: UserID -> TChan InMessage -> Server -> IO ()
 playClient clientId inChan Server{..} = do
     -- because every client wants same copy of the message, duplicate channel.
   outClientChan <- dupChan clientsChan
@@ -121,18 +121,17 @@ playClient clientId inChan Server{..} = do
   writeList2Chan outClientChan [ ServerMsg "Here.. you go!!!"
                                , ServerMsg "Movements: type L for left , R for right, Q for quit... enjoy." ]
 
-  -- todo: for this functionality we would need to use TChan for userChan/inChan
-  -- hFlush clientHdl
+  -- flush all accumulated messages till now before allowing to play the game.
+  _ <- readMsgs inChan
 
   fix $ \loop ->
     do
-      msg <- readChan inChan
+      msg <- atomically $ readTChan inChan
       case msg of
         PlayerExit _ -> void $ writeChan outClientChan $ ServerMsg "Sayonara !!!"
         _ -> atomically (writeTChan serverChan msg) >> loop
 
   killThread writer
-
   atomically $ writeTChan serverChan (PlayerExit clientId)
 
 -- Adds user to user list and returns whether all users are ready
@@ -181,7 +180,6 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
               return Nothing
 
         processEvent' game' evCons clientId = do
-          users    <- readMVar serverUsers
           let event = evCons . PlayerId . getUserID $ clientId
           processEvent server game' event
 
