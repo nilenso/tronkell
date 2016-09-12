@@ -6,8 +6,7 @@ import Tronkell.Server.Types as Server
 import Tronkell.Game.Types as Game
 import Tronkell.Types
 import Tronkell.Game.Engine as Engine
-
-import Network (PortID(..), accept, listenOn, withSocketsDo)
+import Tronkell.Network.Websockets as W
 
 import Control.Concurrent
 import Control.Concurrent.STM
@@ -15,83 +14,102 @@ import Control.Concurrent.STM
 import qualified Data.Text as T
 import Data.Maybe (fromJust)
 
-import Control.Monad (void, when, foldM)
+import Control.Monad (void, foldM, forever)
 import Control.Monad.Fix (fix)
-import Control.Exception
 import qualified Data.Map as M
 
-import System.IO
-
 startServer :: Game.GameConfig -> IO ()
-startServer gConfig = withSocketsDo $ do
-  sock         <- listenOn . PortNumber $ 4242
+startServer gConfig = do
+  firstUId              <- newMVar $ UserID 0
+  playersVar            <- newMVar M.empty
+  networkInChan         <- newChan
+  clientSpecificOutChan <- newChan
+  serverChan            <- atomically newTChan
+  clientsChan           <- newChan
+  internalChan          <- newChan
 
-  firstUId     <- newMVar $ UserID 0
-  playersVar   <- newMVar M.empty
-  serverChan   <- atomically newTChan
-  clientsChan  <- newChan
-  internalChan <- newChan
+  let networkChans = (networkInChan, clientSpecificOutChan)
+      server = Server gConfig playersVar networkChans serverChan clientsChan internalChan
 
-  let server = Server gConfig firstUId playersVar sock serverChan clientsChan internalChan
+  -- start game server : wrong : server after game has started.
+  void $ forkIO $ void $ handleIncomingMessages server Nothing
 
-  forkIO $ handleIncomingMessages server Nothing >> return ()
+  -- start websockets
+  dupClientsChanWS <- dupChan clientsChan
+  void $ forkIO $ W.start firstUId networkChans dupClientsChanWS
 
-  mainLoop server
+  clientsLoop server M.empty
 
-type ClientId = Int
+clientsLoop :: Server -> M.Map UserID (Chan InMessage) -> IO ()
+clientsLoop server@Server{..} userChans = do
+  let (networkInChan, _) = networkChans
+  msg <- readChan networkInChan
+  case msg of
+    PlayerJoined uId -> do
+      userChan <- newChan
+      let userChans' = M.insert uId userChan userChans -- check if uId already not there
+      forkIO $ runClient uId userChan server
+      clientsLoop server userChans'
+    _ -> do
+      let uId = getUserId msg
+          userChan = M.lookup uId userChans
+      maybe (return ()) (flip writeChan msg) userChan
+      clientsLoop server userChans
 
-mainLoop :: Server -> IO ()
-mainLoop server@Server{..} = do
-  (clientHdl, _, _) <- accept serverSocket
-  hSetBuffering clientHdl NoBuffering
-  forkIO $ runClient clientHdl server
-  mainLoop server
+-- tcpMainLoop :: Server -> IO ()
+-- tcpMainLoop server@Server{..} = do
+--   (clientHdl, _, _) <- accept serverSocket
+--   hSetBuffering clientHdl NoBuffering
+--   forkIO $ runClient clientHdl server
+--   tcpMainLoop server
 
-runClient :: Handle -> Server -> IO ()
-runClient clientHdl server@Server{..} = do
-  hPutStr clientHdl "Take a nick name : "
-  uId  <- modifyMVar serverLastUserId getNextUserID
-  nick <- Just . T.pack . cleanString <$> hGetLine clientHdl
-  let user = User uId nick Waiting
-  failedToAdd <- modifyMVar serverUsers $ \users ->
-    if isNickTaken users nick
-    then return (users, True)
-    else return (M.insert uId user users, False)
+runClient :: UserID -> Chan InMessage -> Server -> IO ()
+runClient uId clientChan server@Server{..} = do
+  let (_, clientSpecificOutChan) = networkChans
+  writeChan clientSpecificOutChan $ (uId, ServerMsg "Take a nick name : ")
+  msg <- readChan clientChan
+  let nick = case msg of
+               PlayerName _ name -> Just name
+               _ -> Nothing
 
-  if failedToAdd
-  then runClient clientHdl server
-  else do atomically $ writeTChan serverChan $ PlayerJoined uId
-          hPutStrLn clientHdl $ "Hi.. " ++ T.unpack (fromJust nick) ++ ".. Type ready when you are ready to play.. quit to quit."
-          fix $ \loop -> do ready <- cleanString <$> hGetLine clientHdl
-                            case ready of
-                             "ready" -> playClient uId clientHdl server
-                             "quit" -> atomically $ writeTChan serverChan $ PlayerExit uId
-                             _ -> loop
+  case nick of
+    Nothing -> runClient uId clientChan server
+    Just _ -> do
+      let user = User uId nick Waiting
+      failedToAdd <- modifyMVar serverUsers $ \users ->
+        -- for player we still have name as id ; so keep it unique.
+        if isNickTaken users nick
+        then return (users, True)
+        else return (M.insert uId user users, False)
+
+      if failedToAdd
+      then runClient uId clientChan server
+      else do atomically $ writeTChan serverChan $ PlayerJoined uId
+              writeChan clientSpecificOutChan $ (uId, ServerMsg $ "Hi.. " ++ T.unpack (fromJust nick) ++ ".. Type ready when you are ready to play.. quit to quit.")
+              fix $ \loop -> do m <- readChan clientChan
+                                case m of
+                                 PlayerReady _ -> playClient uId clientChan server
+                                 PlayerExit  _ -> atomically $ writeTChan serverChan $ PlayerExit uId
+                                 _ -> loop
   where
     isNickTaken users nick = any (\u -> nick == userNick u) users
-    getNextUserID uId =
-      let
-        next = UserID $ 1 + getUserID uId
-      in
-        return (next, next)
 
 cleanString :: String -> String
 cleanString = reverse . dropWhile (\c -> c == '\n' || c == '\r') . reverse
 
-playClient :: UserID -> Handle -> Server -> IO ()
-playClient clientId clientHdl Server{..} = do
+playClient :: UserID -> Chan InMessage -> Server -> IO ()
+playClient clientId inChan Server{..} = do
     -- because every client wants same copy of the message, duplicate channel.
   outClientChan <- dupChan clientsChan
   writeChan outClientChan $ ServerMsg "Waiting for other players to start the game...!!!"
 
-  writer <- forkIO $ fix $ \loop -> do
-    outmsg <- readChan outClientChan
-    hPrint clientHdl outmsg
-    loop
+  let (_, clientSpecificOutChan) = networkChans
+  writer <- forkIO $ forever $ do
+    outMsg <- readChan outClientChan
+    writeChan clientSpecificOutChan (clientId, outMsg)
 
   clientInternalChan <- dupChan internalChan
 
-  -- only after duplicating the internalChan, send the PlayerReady msg,
   -- otherwise gameready msg for this second client joining is lost.
   atomically $ writeTChan serverChan $ PlayerReady clientId
 
@@ -100,32 +118,22 @@ playClient clientId clientHdl Server{..} = do
   case signal of
     GameReadySignal config players -> writeChan outClientChan $ GameReady config players
 
-  writeList2Chan outClientChan [ServerMsg "Here.. you go!!!",
-                                 ServerMsg "Movements: type L for left , R for right, Q for quit... enjoy."]
+  writeList2Chan outClientChan [ ServerMsg "Here.. you go!!!"
+                               , ServerMsg "Movements: type L for left , R for right, Q for quit... enjoy." ]
 
-  hFlush clientHdl
-  
-  handle (\(SomeException _) -> return ()) $ fix $ \loop ->
+  -- todo: for this functionality we would need to use TChan for userChan/inChan
+  -- hFlush clientHdl
+
+  fix $ \loop ->
     do
-      canRead <- hIsReadable clientHdl
-      when canRead $ do
-        inmsg <- cleanString <$> hGetLine clientHdl
-        case decodeMessage clientId inmsg of
-          Just (PlayerExit _) -> void $ writeChan outClientChan $ ServerMsg "Sayonara !!!"
-          Just msg -> atomically (writeTChan serverChan msg) >> loop
-          Nothing -> loop
+      msg <- readChan inChan
+      case msg of
+        PlayerExit _ -> void $ writeChan outClientChan $ ServerMsg "Sayonara !!!"
+        _ -> atomically (writeTChan serverChan msg) >> loop
 
   killThread writer
 
   atomically $ writeTChan serverChan (PlayerExit clientId)
-  hClose clientHdl
-
-decodeMessage :: UserID -> String -> Maybe InMessage
-decodeMessage userId msg = case msg of
-  "L" -> Just $ PlayerTurnLeft userId
-  "R" -> Just $ PlayerTurnRight userId
-  "Q" -> Just $ PlayerExit userId
-  _   -> Nothing
 
 -- Adds user to user list and returns whether all users are ready
 updateUserReady :: UserID -> M.Map UserID User -> IO (M.Map UserID User, Bool)
@@ -156,6 +164,7 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
           PlayerExit      clientId -> do
             modifyMVar_ serverUsers (return . M.delete clientId)
             processEvent' g' PlayerQuit clientId
+          PlayerName _ _           -> return game
 
         processPlayerReady clientId = case game of
           Just game' -> return $ Just game'
@@ -173,8 +182,7 @@ processMessages server@Server{..} game inMsgs = foldM threadGameOverEvent game i
 
         processEvent' game' evCons clientId = do
           users    <- readMVar serverUsers
-          let nick  = PlayerNick . fromJust . userNick . fromJust . M.lookup clientId $ users
-              event = evCons nick
+          let event = evCons . PlayerId . getUserID $ clientId
           processEvent server game' event
 
 processEvent :: Server -> Maybe Game -> InputEvent -> IO (Maybe Game)
@@ -201,13 +209,14 @@ handleIncomingMessages server@Server{..} game = do
      Nothing -> False
      Just g'  -> Finished == gameStatus g'
 
-playersFromUsers :: M.Map UserID User -> M.Map PlayerNick Player
+playersFromUsers :: M.Map UserID User -> M.Map PlayerId Player
 playersFromUsers = foldl userToPlayer M.empty
   where
     userToPlayer players u =
       let nick   = PlayerNick . fromJust . userNick $ u
-          player = Player nick Alive (10,10) North []
-      in M.insert nick player players
+          pid    = PlayerId . getUserID . userId $ u
+          player = Player pid nick Alive (10,10) North []
+      in M.insert pid player players
 
 runGame :: Maybe Game -> InputEvent -> ([OutEvent], Maybe Game)
 runGame game event =
@@ -218,9 +227,19 @@ runGame game event =
 outEventToOutMessage :: M.Map UserID User -> OutEvent -> OutMessage
 outEventToOutMessage users event =
   case event of
-    Game.PlayerMoved nick coord orien -> Server.PlayerMoved (playerNickToUserId users nick) coord orien
-    Game.PlayerDied  nick coord       -> Server.PlayerDied  (playerNickToUserId users nick) coord
-    Game.GameEnded   nick             -> Server.GameEnded   (playerNickToUserId users <$> nick)
+    Game.PlayerMoved pid coord orien -> Server.PlayerMoved (playerIdToUserId pid) coord orien
+    Game.PlayerDied  pid coord       -> Server.PlayerDied  (playerIdToUserId pid) coord
+    Game.GameEnded   pid             -> Server.GameEnded   (playerIdToUserId <$> pid)
 
-playerNickToUserId :: M.Map UserID User -> PlayerNick -> UserID
-playerNickToUserId users nick = fst . M.elemAt 0 . M.filter (\u -> Just nick == (PlayerNick <$> userNick u)) $ users
+playerIdToUserId :: PlayerId -> UserID
+playerIdToUserId = UserID . getPlayerId
+
+getUserId :: InMessage -> UserID
+getUserId msg =
+  case msg of
+    PlayerJoined    uId -> uId
+    PlayerReady     uId -> uId
+    PlayerExit      uId -> uId
+    PlayerTurnLeft  uId -> uId
+    PlayerTurnRight uId -> uId
+    PlayerName      uId _ -> uId

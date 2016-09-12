@@ -23,10 +23,10 @@ runEvent inputEvent = do
   then return []
   else do
     outEvents <- case inputEvent of
-      TurnLeft  nick -> turnLeft nick
-      TurnRight nick -> turnRight nick
+      TurnLeft  pid -> turnLeft pid
+      TurnRight pid -> turnRight pid
       Tick           -> tick
-      PlayerQuit nick -> playerQuit nick
+      PlayerQuit pid -> playerQuit pid
 
     statusEvents <- setGameStatus
     return $ outEvents ++ statusEvents
@@ -44,22 +44,22 @@ setGameStatus = do
   put game'
   return $ case status of
     InProgress -> []
-    Finished -> [GameEnded (fmap playerNick winner)]
+    Finished -> [GameEnded (fmap playerId winner)]
 
 isValidEvent :: InputEvent -> Game -> Bool
 isValidEvent event game = case event of
   Tick           -> True
-  TurnLeft  nick -> isPlayerAlive nick game
-  TurnRight nick -> isPlayerAlive nick game
-  PlayerQuit nick -> isPlayerAlive nick game
+  TurnLeft  pid -> isPlayerAlive pid game
+  TurnRight pid -> isPlayerAlive pid game
+  PlayerQuit pid -> isPlayerAlive pid game
 
 isGameInProgress :: Game -> Bool
 isGameInProgress = (== InProgress) . gameStatus
 
-isPlayerAlive :: PlayerNick -> Game -> Bool
-isPlayerAlive nick =
+isPlayerAlive :: PlayerId -> Game -> Bool
+isPlayerAlive pid =
   maybe False ((== Alive) . playerStatus)
-  . Map.lookup nick
+  . Map.lookup pid
   . gamePlayers
 
 stopAtBoundary :: GameConfig -> Coordinate -> Coordinate
@@ -87,10 +87,10 @@ movePlayerForward gameConfig player@Player{..} =
            newStatus     = computePlayerStatus gameConfig newPosition
        in (player { playerCoordinate = newCoordinate,
                     playerStatus     = newStatus },
-           PlayerMoved playerNick newCoordinate playerOrientation :
+           PlayerMoved playerId newCoordinate playerOrientation :
             case newStatus of
               Alive -> []
-              Dead  -> [PlayerDied playerNick newCoordinate])
+              Dead  -> [PlayerDied playerId newCoordinate])
 
 tick :: State Game [OutEvent]
 tick  = do
@@ -101,13 +101,13 @@ tick  = do
   put newGame
   return moves
 
-turnRight :: PlayerNick -> State Game [OutEvent]
+turnRight :: PlayerId -> State Game [OutEvent]
 turnRight = turn (getNextEnum 1)
 
-turnLeft :: PlayerNick -> State Game [OutEvent]
+turnLeft :: PlayerId -> State Game [OutEvent]
 turnLeft = turn (getNextEnum 3)
 
-playerQuit :: PlayerNick -> State Game [OutEvent]
+playerQuit :: PlayerId -> State Game [OutEvent]
 playerQuit nick = do
   game@Game{..} <- get
   let player         = fromJust . Map.lookup nick $ gamePlayers
@@ -119,7 +119,7 @@ playerQuit nick = do
 getNextEnum :: Int -> Orientation -> Orientation
 getNextEnum turnTimes i = head . drop (turnTimes + fromEnum i) . cycle $ orientations
 
-turn :: (Orientation -> Orientation) -> PlayerNick -> State Game [OutEvent]
+turn :: (Orientation -> Orientation) -> PlayerId -> State Game [OutEvent]
 turn getNewOrientation nick = do
   game@Game{..} <- get
   let player         = fromJust . Map.lookup nick $ gamePlayers

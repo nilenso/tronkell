@@ -13,7 +13,7 @@ data GameConfig = GameConfig { gameWidth          :: Int
                              } deriving (Show)
 
 data Game = Game { gameWinner  :: Maybe Player
-                 , gamePlayers :: Map PlayerNick Player
+                 , gamePlayers :: Map PlayerId Player
                  , gameStatus  :: GameStatus
                  , gameConfig  :: GameConfig
                  } deriving (Show)
@@ -24,7 +24,11 @@ data GameStatus = InProgress | Finished
 newtype PlayerNick = PlayerNick { getPlayerNick :: T.Text }
                      deriving (Eq, Ord, Show)
 
-data Player = Player { playerNick        :: PlayerNick
+newtype PlayerId = PlayerId { getPlayerId :: Int }
+                   deriving (Eq, Ord, Show)
+
+data Player = Player { playerId          :: PlayerId
+                     , playerNick        :: PlayerNick
                      , playerStatus      :: PlayerStatus
                      , playerCoordinate  :: Coordinate
                      , playerOrientation :: Orientation
@@ -37,14 +41,14 @@ data PlayerStatus = Alive | Dead
 type Trail = [Coordinate]
 
 data InputEvent = Tick
-                | TurnLeft  PlayerNick
-                | TurnRight PlayerNick
-                | PlayerQuit PlayerNick
+                | TurnLeft  PlayerId
+                | TurnRight PlayerId
+                | PlayerQuit PlayerId
                 deriving (Show)
 
-data OutEvent = PlayerMoved PlayerNick Coordinate Orientation
-              | PlayerDied  PlayerNick Coordinate
-              | GameEnded   (Maybe PlayerNick)
+data OutEvent = PlayerMoved PlayerId Coordinate Orientation
+              | PlayerDied  PlayerId Coordinate
+              | GameEnded   (Maybe PlayerId)
               deriving (Show, Eq, Ord)
 
 -- type GameEngine = [InputEvent] -> Game -> ([OutEvent], Game)

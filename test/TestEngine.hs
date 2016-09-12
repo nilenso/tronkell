@@ -37,14 +37,15 @@ instance Arbitrary GameConfig where
 
 instance Arbitrary Player where
   arbitrary = do
+    i <- PlayerId <$> arbitrary
     n <- PlayerNick . fromString <$> arbitrary
     x <- unBoundedInt <$> arbitrary
     y <- unBoundedInt <$> arbitrary
     o <- arbitraryBoundedEnum
-    return $ Player n Alive (x, y) o []
+    return $ Player i n Alive (x, y) o []
 
 isValidPlayer :: GameConfig -> Player -> Bool
-isValidPlayer (GameConfig w h _ _) (Player _ _ (x, y) _ _) = x < w && y < h
+isValidPlayer (GameConfig w h _ _) (Player _ _ _ (x, y) _ _) = x < w && y < h
 
 areOverlappingPlayers :: Player -> Player -> Bool
 areOverlappingPlayers p1 p2 =
@@ -52,11 +53,12 @@ areOverlappingPlayers p1 p2 =
 
 genPlayer :: GameConfig -> Gen Player
 genPlayer GameConfig{..} = do
+  pid  <- PlayerId <$> arbitrary
   nick <- PlayerNick . fromString <$> arbitrary
   x    <- unBoundedInt <$> arbitrary `suchThat` (>= 0) `suchThat` (< BoundedInt gameWidth)
   y    <- unBoundedInt <$> arbitrary `suchThat` (>= 0) `suchThat` (< BoundedInt gameHeight)
   o    <- arbitraryBoundedEnum
-  return $ Player nick Alive (x, y) o []
+  return $ Player pid nick Alive (x, y) o []
 
 instance Arbitrary Game where
   arbitrary = do
@@ -66,7 +68,7 @@ instance Arbitrary Game where
                             `suchThat` (> 0)
     ps     <- nubBy areOverlappingPlayers
               <$> vectorOf np (genPlayer conf)
-    let mp = Map.fromList . map (\p -> (playerNick p, p)) $ ps
+    let mp = Map.fromList . map (\p -> (playerId p, p)) $ ps
     return $ Game Nothing mp InProgress conf
 
 isPlayerOnGrid :: Game -> Player -> Bool
