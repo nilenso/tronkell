@@ -1,5 +1,13 @@
 # Tronkell ui in elm
 
+## How to Run :
+```
+brew install elm
+cd ~/tronkell/ui
+elm reactor -p 8011
+# go to http://localhost:8011/src/Main.elm
+```
+
 ## Interaction with server:
 1. UI would be listening on websockets from server.
 2. Starts by registering with name.
@@ -44,7 +52,7 @@ Json Msg structure :
                  "coordinate"  : {"x" : Int, "y" : Int"},
                  "orientation" : "North"/"South"/"East"/"West"}
    }
-3.	{"type"   : "PlayerDied",
+3. {"type"   : "PlayerDied",
     "player" : { "id" : Int }
    }
 4. {"type"     : "GameEnded",
@@ -63,9 +71,8 @@ type Msg = PlayerName GM.PlayerName
          | MoveLeft
          | MoveRight
 ```
-All messages to the server are in string form.
+Tcp client : All messages to the server are in string form.
+Elm (Websocket client) : Messages are in json format with "type" like "PlayerName", "PlayerReady" etc.
 ```
 "<username>", "ready", "quit", "L", "R"
 ```
-
-## Todo for tomorrow:
