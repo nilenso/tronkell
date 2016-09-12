@@ -16,15 +16,16 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   ghc-options:         -Wall -fwarn-incomplete-uni-patterns -fno-warn-unused-do-bind -fno-warn-orphans
-  exposed-modules:     Tronkell.Types
+  exposed-modules:     Tronkell.Data.Parse
                      , Tronkell.Game.Types
                      , Tronkell.Game.Engine
-                     , Tronkell.Server.Types
-                     , Tronkell.Server.Server
-                     , Tronkell.Data.Parse
                      , Tronkell.Network.Websockets
                      , Tronkell.Network.TcpSockets
                      , Tronkell.Network.Utils
+                     , Tronkell.Server.Types
+                     , Tronkell.Server.Server
+                     , Tronkell.Types
+                     , Tronkell.Utils
   build-depends:       base >= 4.7 && < 5
                      , mtl
                      , containers

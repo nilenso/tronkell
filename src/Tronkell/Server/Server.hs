@@ -6,6 +6,7 @@ import Tronkell.Server.Types as Server
 import Tronkell.Game.Types as Game
 import Tronkell.Types()
 import Tronkell.Game.Engine as Engine
+import qualified Tronkell.Utils as SUtils
 import qualified Tronkell.Network.Websockets as W
 import qualified Tronkell.Network.TcpSockets as Tcp
 
@@ -19,7 +20,6 @@ import Control.Monad (void, foldM, forever, when)
 import Control.Monad.Fix (fix)
 import qualified Data.Map as M
 import qualified Data.List as L (foldl')
-import System.Random
 
 startServer :: Game.GameConfig -> IO ()
 startServer gConfig = do
@@ -63,7 +63,7 @@ clientsLoop server@Server{..} userChans = do
       void $ forkIO $ runClient uId userChan server -- remove useChan after runClient returns.
       clientsLoop server userChans'
     _ -> do
-      let uId = getUserId msg
+      let uId = SUtils.getUserId msg
           userChan = M.lookup uId userChans
       maybe (return ()) (\c -> atomically $ writeTChan c msg) userChan
       clientsLoop server userChans
@@ -132,7 +132,7 @@ playClient clientId inChan Server{..} = do
     , (clientId, ServerMsg "Movements: type L for left , R for right, Q for quit... enjoy.") ]
 
   -- flush all accumulated messages till now before allowing to play the game.
-  _ <- readMsgs inChan
+  _ <- SUtils.readMsgs inChan
 
   fix $ \loop ->
     do
@@ -151,14 +151,6 @@ updateUserReady clientId users =
       -- We have at least 2 users, and all users are ready
       ready      = length users > 1 && all ((Ready ==) . userState) newUsers
   in return (newUsers, ready)
-
-readMsgs :: TChan a -> IO [a]
-readMsgs channel = atomically $ readAll channel
-  where readAll c = do
-          emptyChan <- isEmptyTChan c
-          if emptyChan
-          then return []
-          else (:) <$> readTChan c <*> readAll c
 
 oneSecond :: Int
 oneSecond = 1000000
@@ -193,7 +185,7 @@ processMessages server@Server{..} game inMsgs = do
             if ready
             then do
               users <- readMVar serverUsers
-              players <- playersFromUsers serverGameConfig users
+              players <- SUtils.playersFromUsers serverGameConfig users
               writeChan internalChan $ GameReadySignal serverGameConfig (M.elems players)
               writeChan clientsChan  $ GameReady serverGameConfig (M.elems players)
               return $ Just $ Game Nothing players InProgress serverGameConfig
@@ -208,7 +200,7 @@ processMessages server@Server{..} game inMsgs = do
           case maybeGame of -- try maybe
             Nothing -> return ()
             Just g' ->
-              let deadUserIds = map playerIdToUserId $ Engine.deadPlayers g'
+              let deadUserIds = map SUtils.playerIdToUserId $ Engine.deadPlayers g'
               in modifyMVar_ serverUsers $ \users ->
                    return $ L.foldl' (\newUsers deadUId ->
                                          M.adjust (\u -> u { userState = Waiting }) deadUId newUsers)
@@ -218,14 +210,14 @@ processEvent :: Server -> Maybe Game -> InputEvent -> IO (Maybe Game)
 processEvent Server{..} g event = do
   users               <- readMVar serverUsers
   let (outEvs, game') = runGame g event
-      outMsgs         = outEventToOutMessage users <$> outEvs
+      outMsgs         = SUtils.outEventToOutMessage users <$> outEvs
   writeList2Chan clientsChan outMsgs
   return game'
 
 gameEngineThread :: Server -> Maybe Game -> IO Game
 gameEngineThread server@Server{..} game = do
   threadDelay . quot oneSecond . gameTicksPerSecond $ serverGameConfig
-  inMsgs <- readMsgs serverChan
+  inMsgs <- SUtils.readMsgs serverChan
   game' <- processMessages server game inMsgs
   game'' <- processEvent server game' Tick
 
@@ -238,47 +230,8 @@ gameEngineThread server@Server{..} game = do
      Nothing -> False
      Just g'  -> Finished == gameStatus g'
 
-playersFromUsers :: GameConfig -> M.Map UserID User -> IO (M.Map PlayerId Player)
-playersFromUsers GameConfig{..} = foldM userToPlayer M.empty
-  where
-    userToPlayer players u = do
-      let nick   = PlayerNick . fromJust . userNick $ u
-          pid    = PlayerId . getUserID . userId $ u
-          (wStart, wEnd) = toRandomRange gameWidth
-          (hStart, hEnd) = toRandomRange gameHeight
-      x <- getStdRandom (randomR (wStart, wEnd))
-      y <- getStdRandom (randomR (hStart, hEnd))
-      orien <- getStdRandom random
-
-      let player = Player pid nick Alive (x, y) orien []
-      return $ M.insert pid player players
-
-    toRandomRange i = (round $ (fromIntegral i :: Double) / 4,
-                       round $ (fromIntegral i :: Double) / 4 * 3)
-
 runGame :: Maybe Game -> InputEvent -> ([OutEvent], Maybe Game)
 runGame game event =
   case game of
     Nothing -> ([], Nothing)
     Just g  -> Just <$> Engine.runEngine Engine.gameEngine g [event]
-
-outEventToOutMessage :: M.Map UserID User -> OutEvent -> OutMessage
-outEventToOutMessage _ event =
-  case event of
-    Game.PlayerMoved pid coord orien -> Server.PlayerMoved (playerIdToUserId pid) coord orien
-    Game.PlayerDied  pid coord       -> Server.PlayerDied  (playerIdToUserId pid) coord
-    Game.GameEnded   pid             -> Server.GameEnded   (playerIdToUserId <$> pid)
-
-playerIdToUserId :: PlayerId -> UserID
-playerIdToUserId = UserID . getPlayerId
-
-getUserId :: InMessage -> UserID
-getUserId msg =
-  case msg of
-    PlayerJoined    uId -> uId
-    PlayerReady     uId -> uId
-    PlayerExit      uId -> uId
-    PlayerTurnLeft  uId -> uId
-    PlayerTurnRight uId -> uId
-    PlayerName      uId _ -> uId
-    UserExit        uId -> uId
