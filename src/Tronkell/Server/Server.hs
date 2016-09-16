@@ -42,8 +42,13 @@ startServer gConfig = do
   -- start network
   wsThread  <- forkIO $ W.start firstUId networkChans clientsChan
   tcpThread <- forkIO $ Tcp.start firstUId networkChans clientsChan
+  -- to avoid space msg leak..
+  forkIO . forever . readChan $ clientSpecificOutChan
+  forkIO . forever . readChan $ clientsChan
+  forkIO . forever . readChan $ internalChan
 
   clientsLoop server M.empty
+
   killThread gameThread
   killThread wsThread
   killThread tcpThread
