@@ -43,6 +43,7 @@ startServer gConfig = do
   wsThread  <- forkIO $ W.start firstUId networkChans clientsChan
   tcpThread <- forkIO $ Tcp.start firstUId networkChans clientsChan
   -- to avoid space msg leak..
+  -- fixme : move to broadcast tchan
   forkIO . forever . readChan $ clientSpecificOutChan
   forkIO . forever . readChan $ clientsChan
   forkIO . forever . readChan $ internalChan
